@@ -19,7 +19,7 @@ def export_entries_csv(entries: list[TimeEntry], filepath: str,
 
     with open(filepath, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["Date", "Time", "Project", "Activity", "Detail",
+        writer.writerow(["Date", "Time", "Project", "Activity",
                          "Duration", "Running Total"])
         for entry, dur, run in zip(entries, durations, running):
             writer.writerow([
@@ -27,7 +27,6 @@ def export_entries_csv(entries: list[TimeEntry], filepath: str,
                 entry.time_str,
                 entry.project,
                 entry.activity,
-                entry.detail,
                 format_duration(dur) if dur is not None else "",
                 format_duration(run) if run is not None else "",
             ])
@@ -71,7 +70,7 @@ def export_all_json(db: Database, settings: AppSettings,
         entries = db.get_entries_range(start, end)
         entries_data = [
             {"timestamp": e.timestamp, "project": e.project,
-             "activity": e.activity, "detail": e.detail}
+             "activity": e.activity}
             for e in entries
         ]
 
@@ -110,7 +109,6 @@ def import_all_json(db: Database) -> Optional[dict]:
         db.add_entry(
             project=e["project"],
             activity=e.get("activity", ""),
-            detail=e.get("detail", ""),
             timestamp=e["timestamp"],
         )
 

@@ -26,8 +26,7 @@ class Database:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp REAL NOT NULL,
                 project TEXT NOT NULL,
-                activity TEXT DEFAULT '',
-                detail TEXT DEFAULT ''
+                activity TEXT DEFAULT ''
             )
         """)
         self.conn.execute("""
@@ -36,28 +35,28 @@ class Database:
         """)
         self.conn.commit()
 
-    def add_entry(self, project: str, activity: str = "", detail: str = "",
+    def add_entry(self, project: str, activity: str = "",
                   timestamp: Optional[float] = None) -> TimeEntry:
         ts = timestamp if timestamp is not None else datetime.now().timestamp()
         cur = self.conn.execute(
-            "INSERT INTO entries (timestamp, project, activity, detail) VALUES (?, ?, ?, ?)",
-            (ts, project, activity, detail),
+            "INSERT INTO entries (timestamp, project, activity) VALUES (?, ?, ?)",
+            (ts, project, activity),
         )
         self.conn.commit()
         return TimeEntry(id=cur.lastrowid, timestamp=ts, project=project,
-                         activity=activity, detail=detail)
+                         activity=activity)
 
     def update_entry(self, entry_id: int, project: str, activity: str = "",
-                     detail: str = "", timestamp: Optional[float] = None) -> None:
+                     timestamp: Optional[float] = None) -> None:
         if timestamp is not None:
             self.conn.execute(
-                "UPDATE entries SET project=?, activity=?, detail=?, timestamp=? WHERE id=?",
-                (project, activity, detail, timestamp, entry_id),
+                "UPDATE entries SET project=?, activity=?, timestamp=? WHERE id=?",
+                (project, activity, timestamp, entry_id),
             )
         else:
             self.conn.execute(
-                "UPDATE entries SET project=?, activity=?, detail=? WHERE id=?",
-                (project, activity, detail, entry_id),
+                "UPDATE entries SET project=?, activity=? WHERE id=?",
+                (project, activity, entry_id),
             )
         self.conn.commit()
 
@@ -71,7 +70,6 @@ class Database:
             timestamp=row["timestamp"],
             project=row["project"],
             activity=row["activity"],
-            detail=row["detail"],
         )
 
     def get_entries_for_date(self, date: datetime) -> list[TimeEntry]:

@@ -101,7 +101,7 @@ export function loadButtons(buttonConfig) {
       button.className = 'btn-group-item';
       button.textContent = btn.label;
       button.addEventListener('click', () => {
-        callbacks.onProjectClick?.(btn.project, btn.activity, btn.detail);
+        callbacks.onProjectClick?.(btn.project, btn.activity);
         closeMobileSidebar();
       });
       grid.appendChild(button);

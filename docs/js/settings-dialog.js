@@ -166,7 +166,7 @@ function buildButtonsBody() {
       const row = document.createElement('div');
       row.className = 'button-row';
 
-      for (const key of ['label', 'project', 'activity', 'detail']) {
+      for (const key of ['label', 'project', 'activity']) {
         const input = document.createElement('input');
         input.className = 'button-field';
         input.type = 'text';
@@ -196,7 +196,7 @@ function buildButtonsBody() {
     addBtnLink.textContent = 'Add Button';
     addBtnLink.addEventListener('click', (e) => {
       e.preventDefault();
-      editableConfig.groups[gi].buttons.push({ label: '', project: '', activity: '', detail: '' });
+      editableConfig.groups[gi].buttons.push({ label: '', project: '', activity: '' });
       render();
     });
     card.appendChild(addBtnLink);

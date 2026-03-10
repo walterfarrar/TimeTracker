@@ -1,13 +1,12 @@
 const BUTTONS_KEY = "tt_buttons";
 const SETTINGS_KEY = "tt_settings";
 
-export function createEntry(project, activity = "", detail = "") {
+export function createEntry(project, activity = "") {
   return {
     id: null,
     timestamp: Math.floor(Date.now() / 1000),
     project,
     activity,
-    detail,
   };
 }
 
@@ -40,8 +39,8 @@ export function defaultButtonConfig() {
       {
         name: "BREAK",
         buttons: [
-          { label: "Break", project: "BREAK", activity: "Break", detail: "" },
-          { label: "Lunch", project: "BREAK", activity: "Lunch", detail: "" },
+          { label: "Break", project: "BREAK", activity: "Break" },
+          { label: "Lunch", project: "BREAK", activity: "Lunch" },
         ],
       },
     ],

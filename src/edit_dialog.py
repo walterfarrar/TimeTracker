@@ -19,7 +19,6 @@ class EditEntryDialog(ctk.CTkToplevel):
         self.result = None
         self.project = entry.project
         self.activity = entry.activity
-        self.detail = entry.detail
         self.timestamp = entry.timestamp
 
         self._project_list = project_list or []
@@ -27,7 +26,7 @@ class EditEntryDialog(ctk.CTkToplevel):
             self._project_list = [entry.project] + self._project_list
 
         self.title("Add Entry" if mode == "add" else "Edit Entry")
-        self.geometry("400x340")
+        self.geometry("400x280")
         self.resizable(False, False)
         self.transient(master)
         self.grab_set()
@@ -60,13 +59,8 @@ class EditEntryDialog(ctk.CTkToplevel):
         self._activity_var = ctk.StringVar(value=self.entry.activity)
         ctk.CTkEntry(self, textvariable=self._activity_var).grid(row=5, column=0, **pad)
 
-        ctk.CTkLabel(self, text="Detail", font=label_font, anchor="w").grid(
-            row=6, column=0, **pad)
-        self._detail_var = ctk.StringVar(value=self.entry.detail)
-        ctk.CTkEntry(self, textvariable=self._detail_var).grid(row=7, column=0, **pad)
-
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        btn_frame.grid(row=8, column=0, padx=16, pady=16, sticky="ew")
+        btn_frame.grid(row=6, column=0, padx=16, pady=16, sticky="ew")
 
         if self.mode == "add":
             btn_frame.grid_columnconfigure((0, 1), weight=1)
@@ -107,7 +101,6 @@ class EditEntryDialog(ctk.CTkToplevel):
             return
         self.project = self._project_var.get().strip()
         self.activity = self._activity_var.get().strip()
-        self.detail = self._detail_var.get().strip()
         self.timestamp = ts
         self.result = "save"
         self.destroy()

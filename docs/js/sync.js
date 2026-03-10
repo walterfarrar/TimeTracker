@@ -76,13 +76,13 @@ function escapeCsvField(field) {
 
 /**
  * Builds CSV rows from entries with durations and running totals.
- * @param {Array} entries - Sorted entries with timestamp, project, activity, detail
+ * @param {Array} entries - Sorted entries with timestamp, project, activity
  * @returns {string}
  */
 function buildCsvFromEntries(entries) {
   const durations = computeDurations(entries);
   const runningTotals = computeRunningTotals(durations);
-  const headers = ["Date", "Time", "Project", "Activity", "Detail", "Duration", "Total"];
+  const headers = ["Date", "Time", "Project", "Activity", "Duration", "Total"];
   const rows = [headers.map(escapeCsvField).join(",")];
 
   for (let i = 0; i < entries.length; i++) {
@@ -97,7 +97,6 @@ function buildCsvFromEntries(entries) {
         escapeCsvField(time),
         escapeCsvField(e.project),
         escapeCsvField(e.activity),
-        escapeCsvField(e.detail),
         escapeCsvField(duration),
         escapeCsvField(total),
       ].join(",")
@@ -150,9 +149,8 @@ export function importJson(onComplete) {
         for (const e of entries) {
           const project = e.project ?? "";
           const activity = e.activity ?? "";
-          const detail = e.detail ?? "";
           const timestamp = typeof e.timestamp === "number" ? e.timestamp : null;
-          Store.addEntry(project, activity, detail, timestamp);
+          Store.addEntry(project, activity, timestamp);
         }
 
         if (payload.buttons) {

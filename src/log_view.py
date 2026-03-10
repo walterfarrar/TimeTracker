@@ -10,8 +10,8 @@ from .models import TimeEntry
 from .time_calc import compute_durations, compute_running_totals, format_duration
 
 
-COL_HEADERS = ["Date", "Time", "Project", "Activity", "Detail", "Duration", "Total", ""]
-COL_WIDTHS = [90, 100, 130, 120, 120, 80, 80, 30]
+COL_HEADERS = ["Date", "Time", "Project", "Activity", "Duration", "Total", ""]
+COL_WIDTHS = [90, 100, 130, 150, 80, 80, 30]
 
 HOVER_BG = ("gray80", "#2a3f5f")
 NORMAL_BG = "transparent"
@@ -96,7 +96,6 @@ class LogView(ctk.CTkFrame):
                 entry.time_str,
                 entry.project,
                 entry.activity,
-                entry.detail,
                 format_duration(dur) if dur is not None else "",
                 format_duration(run) if run is not None else "",
             ]
@@ -138,8 +137,8 @@ class LogView(ctk.CTkFrame):
         if entries:
             self._last_entry = entries[-1]
             last_labels = self._entry_rows[-1][1]
-            self._last_dur_label = last_labels[5]
-            self._last_run_label = last_labels[6]
+            self._last_dur_label = last_labels[4]
+            self._last_run_label = last_labels[5]
 
         self._scroll.after(50, lambda: self._scroll._parent_canvas.yview_moveto(1.0))
 

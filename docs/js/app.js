@@ -33,7 +33,7 @@ function init() {
   setDays(settings.workingDaysThisWeek);
 
   initSidebar({
-    onProjectClick: (project, activity, detail) => onProjectClick(project, activity, detail),
+    onProjectClick: (project, activity) => onProjectClick(project, activity),
     onEndDay: () => onEndDay(),
     onRefresh: () => { refreshLog(); refreshReports(); },
     onSettings: () => onOpenSettings(),
@@ -74,10 +74,10 @@ function reloadButtonConfig() {
   loadButtons(config);
 }
 
-function onProjectClick(project, activity, detail) {
+function onProjectClick(project, activity) {
   if (!isViewingToday()) goToday();
   dayEnded = false;
-  Store.addEntry(project, activity || '', detail || '');
+  Store.addEntry(project, activity || '');
   refreshLog();
 }
 
@@ -137,14 +137,12 @@ function onEditEntry(entry) {
   if (newProject === null) return;
   const newActivity = prompt('Activity:', entry.activity);
   if (newActivity === null) return;
-  const newDetail = prompt('Detail:', entry.detail);
-  if (newDetail === null) return;
 
   const doDelete = confirm('Delete this entry instead?');
   if (doDelete) {
     Store.deleteEntry(entry.id);
   } else {
-    Store.updateEntry(entry.id, newProject, newActivity, newDetail);
+    Store.updateEntry(entry.id, newProject, newActivity);
   }
   refreshLog();
   refreshReports();

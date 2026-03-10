@@ -11,7 +11,7 @@ class Sidebar(ctk.CTkFrame):
     """Right-side panel with special buttons and project group buttons."""
 
     def __init__(self, master: ctk.CTkBaseClass,
-                 on_project_click: Callable[[str, str, str], None],
+                 on_project_click: Callable[[str, str], None],
                  on_end_day: Callable[[], None],
                  on_refresh: Callable[[], None],
                  on_settings: Callable[[], None],
@@ -85,6 +85,6 @@ class Sidebar(ctk.CTkFrame):
                 btn_frame, text=bdef.label, height=30,
                 font=ctk.CTkFont(size=12),
                 command=lambda b=bdef: self._on_project_click(
-                    b.project, b.activity, b.detail),
+                    b.project, b.activity),
             )
             btn.grid(row=r, column=c, padx=2, pady=2, sticky="ew")

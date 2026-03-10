@@ -50,7 +50,7 @@ class TimeTrackerApp(ctk.CTk):
         self.tray = TrayManager(self)
         self.tray.start()
 
-        self.protocol("WM_DELETE_WINDOW", self._on_minimize_to_tray)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<Control-e>", lambda e: self._export_today())
         self.bind("<Control-E>", lambda e: self._export_week())
         self.bind("<Control-j>", lambda e: self._export_json())
@@ -139,8 +139,8 @@ class TimeTrackerApp(ctk.CTk):
     def _on_date_changed(self, date: datetime) -> None:
         self.refresh_log()
 
-    def _on_project_button(self, project: str, activity: str, detail: str) -> None:
-        self.db.add_entry(project=project, activity=activity, detail=detail)
+    def _on_project_button(self, project: str, activity: str) -> None:
+        self.db.add_entry(project=project, activity=activity)
         self._snap_to_today()
 
     def _on_end_day(self) -> None:
@@ -198,7 +198,7 @@ class TimeTrackerApp(ctk.CTk):
         self.wait_window(dialog)
         if dialog.result == "save":
             self.db.update_entry(
-                entry.id, dialog.project, dialog.activity, dialog.detail,
+                entry.id, dialog.project, dialog.activity,
                 timestamp=dialog.timestamp,
             )
             self.refresh_log()
@@ -213,14 +213,14 @@ class TimeTrackerApp(ctk.CTk):
     def _on_entry_add_above(self, entry: TimeEntry) -> None:
         placeholder = TimeEntry(
             id=0, timestamp=entry.timestamp - 1,
-            project="", activity="", detail="",
+            project="", activity="",
         )
         self._open_add_dialog(placeholder)
 
     def _on_entry_add_below(self, entry: TimeEntry) -> None:
         placeholder = TimeEntry(
             id=0, timestamp=entry.timestamp + 1,
-            project="", activity="", detail="",
+            project="", activity="",
         )
         self._open_add_dialog(placeholder)
 
@@ -233,7 +233,7 @@ class TimeTrackerApp(ctk.CTk):
         if dialog.result == "save":
             self.db.add_entry(
                 project=dialog.project, activity=dialog.activity,
-                detail=dialog.detail, timestamp=dialog.timestamp,
+                timestamp=dialog.timestamp,
             )
             self.refresh_log()
 

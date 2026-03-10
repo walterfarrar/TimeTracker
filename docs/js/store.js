@@ -23,8 +23,8 @@ function nextId() {
   return id;
 }
 
-export function addEntry(project, activity = "", detail = "", timestamp = null) {
-  const entry = createEntry(project, activity, detail);
+export function addEntry(project, activity = "", timestamp = null) {
+  const entry = createEntry(project, activity);
   entry.id = nextId();
   if (timestamp !== null) entry.timestamp = timestamp;
   const entries = loadAll();
@@ -33,13 +33,12 @@ export function addEntry(project, activity = "", detail = "", timestamp = null) 
   return entry;
 }
 
-export function updateEntry(id, project, activity, detail, timestamp = null) {
+export function updateEntry(id, project, activity, timestamp = null) {
   const entries = loadAll();
   const idx = entries.findIndex((e) => e.id === id);
   if (idx === -1) return null;
   entries[idx].project = project;
   entries[idx].activity = activity;
-  entries[idx].detail = detail;
   if (timestamp !== null) entries[idx].timestamp = timestamp;
   saveAll(entries);
   return entries[idx];

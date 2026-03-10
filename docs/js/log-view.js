@@ -40,7 +40,7 @@ export function renderLog(entries, breakProjects) {
 
   const thead = document.createElement('thead');
   const headerRow = document.createElement('tr');
-  ['Date', 'Time', 'Project', 'Activity', 'Detail', 'Duration', 'Total'].forEach(col => {
+  ['Date', 'Time', 'Project', 'Activity', 'Duration', 'Total'].forEach(col => {
     const th = document.createElement('th');
     th.textContent = col;
     headerRow.appendChild(th);
@@ -66,7 +66,6 @@ export function renderLog(entries, breakProjects) {
     tr.appendChild(createCell(formatTime(entry.timestamp)));
     tr.appendChild(createCell(entry.project));
     tr.appendChild(createCell(entry.activity));
-    tr.appendChild(createCell(entry.detail));
 
     const isLast = i === entries.length - 1;
 

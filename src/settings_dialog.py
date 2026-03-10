@@ -158,10 +158,9 @@ class SettingsDialog(ctk.CTkToplevel):
         f = ctk.CTkFont(size=11)
 
         fields = [
-            ("Label", bdef.label, 90),
-            ("Project", bdef.project, 100),
-            ("Activity", bdef.activity, 90),
-            ("Detail", bdef.detail, 80),
+            ("Label", bdef.label, 100),
+            ("Project", bdef.project, 120),
+            ("Activity", bdef.activity, 120),
         ]
         vars_: list[ctk.StringVar] = []
         for col, (placeholder, val, w) in enumerate(fields):
@@ -171,7 +170,7 @@ class SettingsDialog(ctk.CTkToplevel):
             e.pack(side="left", padx=1)
             vars_.append(var)
 
-        for i, field_name in enumerate(["label", "project", "activity", "detail"]):
+        for i, field_name in enumerate(["label", "project", "activity"]):
             vars_[i].trace_add("write", lambda *_, gi=g_idx, bi=b_idx,
                                fn=field_name, v=vars_[i]:
                                self._update_button_field(gi, bi, fn, v.get()))

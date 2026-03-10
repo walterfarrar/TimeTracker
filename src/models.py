@@ -14,7 +14,6 @@ class TimeEntry:
     timestamp: float  # Unix epoch
     project: str
     activity: str = ""
-    detail: str = ""
 
     @property
     def dt(self) -> datetime:
@@ -34,14 +33,11 @@ class ButtonDef:
     label: str
     project: str
     activity: str = ""
-    detail: str = ""
 
     def to_dict(self) -> dict:
         d = {"label": self.label, "project": self.project}
         if self.activity:
             d["activity"] = self.activity
-        if self.detail:
-            d["detail"] = self.detail
         return d
 
     @classmethod
@@ -50,7 +46,6 @@ class ButtonDef:
             label=d["label"],
             project=d["project"],
             activity=d.get("activity", ""),
-            detail=d.get("detail", ""),
         )
 
 
