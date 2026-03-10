@@ -80,7 +80,13 @@ class TimeTrackerApp(ctk.CTk):
                                fg_color=("gray92", "gray14"))
         self.header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=0, pady=(0, 4))
 
-        self.log_view = LogView(log_tab, on_double_click=self._on_entry_double_click)
+        self.log_view = LogView(
+            log_tab,
+            on_edit=self._on_entry_edit,
+            on_delete=self._on_entry_delete,
+            on_add_above=self._on_entry_add_above,
+            on_add_below=self._on_entry_add_below,
+        )
         self.log_view.grid(row=1, column=0, sticky="nsew", padx=(0, 4), pady=0)
 
         self.sidebar = Sidebar(
@@ -170,9 +176,22 @@ class TimeTrackerApp(ctk.CTk):
 
         self._update_header_live()
 
-    def _on_entry_double_click(self, entry: TimeEntry) -> None:
+    def _get_project_list(self) -> list[str]:
+        """Collect unique project names from the button config."""
+        seen = set()
+        projects = []
+        for group in self.button_config.groups:
+            for btn in group.buttons:
+                if btn.project and btn.project not in seen:
+                    seen.add(btn.project)
+                    projects.append(btn.project)
+        return projects
+
+    def _on_entry_edit(self, entry: TimeEntry) -> None:
         from .edit_dialog import EditEntryDialog
-        dialog = EditEntryDialog(self, entry)
+        dialog = EditEntryDialog(
+            self, entry, project_list=self._get_project_list(), mode="edit",
+        )
         self.wait_window(dialog)
         if dialog.result == "save":
             self.db.update_entry(
@@ -182,6 +201,37 @@ class TimeTrackerApp(ctk.CTk):
             self.refresh_log()
         elif dialog.result == "delete":
             self.db.delete_entry(entry.id)
+            self.refresh_log()
+
+    def _on_entry_delete(self, entry: TimeEntry) -> None:
+        self.db.delete_entry(entry.id)
+        self.refresh_log()
+
+    def _on_entry_add_above(self, entry: TimeEntry) -> None:
+        placeholder = TimeEntry(
+            id=0, timestamp=entry.timestamp - 1,
+            project="", activity="", detail="",
+        )
+        self._open_add_dialog(placeholder)
+
+    def _on_entry_add_below(self, entry: TimeEntry) -> None:
+        placeholder = TimeEntry(
+            id=0, timestamp=entry.timestamp + 1,
+            project="", activity="", detail="",
+        )
+        self._open_add_dialog(placeholder)
+
+    def _open_add_dialog(self, placeholder: TimeEntry) -> None:
+        from .edit_dialog import EditEntryDialog
+        dialog = EditEntryDialog(
+            self, placeholder, project_list=self._get_project_list(), mode="add",
+        )
+        self.wait_window(dialog)
+        if dialog.result == "save":
+            self.db.add_entry(
+                project=dialog.project, activity=dialog.activity,
+                detail=dialog.detail, timestamp=dialog.timestamp,
+            )
             self.refresh_log()
 
     def _open_settings(self) -> None:
