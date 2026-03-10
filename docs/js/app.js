@@ -4,9 +4,9 @@ import {
   computeDurations, computeWorkTime, computeWeekWorkTime,
   computeTimeRemaining
 } from './time-calc.js';
-import { initHeader, updateStats, setDays, getViewDate, isViewingToday, goToday } from './header.js';
+import { initHeader, updateStats, setDays, getViewDate, isViewingToday, goToday, setMenuToggle } from './header.js';
 import { renderLog, tickLiveDuration, setEditCallback } from './log-view.js';
-import { initSidebar, loadButtons } from './sidebar.js';
+import { initSidebar, loadButtons, toggleSidebar } from './sidebar.js';
 import { openSettings } from './settings-dialog.js';
 import { initReports, refreshReports, updateButtonConfig } from './reports.js';
 import { exportJson, importJson } from './sync.js';
@@ -18,6 +18,8 @@ let activeTab = 'log';
 function init() {
   const settings = loadSettings();
   applyTheme(settings.theme);
+
+  setMenuToggle(() => toggleSidebar());
 
   initHeader({
     onDateChanged: () => refreshLog(),

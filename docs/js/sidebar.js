@@ -1,5 +1,19 @@
 let callbacks = {};
 
+function closeMobileSidebar() {
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('sidebar-open');
+    document.getElementById('sidebar-backdrop').classList.remove('sidebar-backdrop-visible');
+  }
+}
+
+export function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  sidebar.classList.toggle('sidebar-open');
+  backdrop.classList.toggle('sidebar-backdrop-visible');
+}
+
 export function initSidebar(cb) {
   callbacks = cb;
 
@@ -12,12 +26,18 @@ export function initSidebar(cb) {
   const btnEndDay = document.createElement('button');
   btnEndDay.className = 'btn-danger';
   btnEndDay.textContent = 'End Day';
-  btnEndDay.addEventListener('click', () => callbacks.onEndDay?.());
+  btnEndDay.addEventListener('click', () => {
+    callbacks.onEndDay?.();
+    closeMobileSidebar();
+  });
 
   const btnRefresh = document.createElement('button');
   btnRefresh.className = 'btn-primary';
   btnRefresh.textContent = 'Refresh';
-  btnRefresh.addEventListener('click', () => callbacks.onRefresh?.());
+  btnRefresh.addEventListener('click', () => {
+    callbacks.onRefresh?.();
+    closeMobileSidebar();
+  });
 
   topRow.append(btnEndDay, btnRefresh);
 
@@ -31,20 +51,31 @@ export function initSidebar(cb) {
   const btnSettings = document.createElement('button');
   btnSettings.className = 'btn-secondary';
   btnSettings.textContent = 'Settings';
-  btnSettings.addEventListener('click', () => callbacks.onSettings?.());
+  btnSettings.addEventListener('click', () => {
+    callbacks.onSettings?.();
+    closeMobileSidebar();
+  });
 
   const btnExport = document.createElement('button');
   btnExport.className = 'btn-secondary';
   btnExport.textContent = 'Export JSON';
-  btnExport.addEventListener('click', () => callbacks.onExportJson?.());
+  btnExport.addEventListener('click', () => {
+    callbacks.onExportJson?.();
+    closeMobileSidebar();
+  });
 
   const btnImport = document.createElement('button');
   btnImport.className = 'btn-secondary';
   btnImport.textContent = 'Import JSON';
-  btnImport.addEventListener('click', () => callbacks.onImportJson?.());
+  btnImport.addEventListener('click', () => {
+    callbacks.onImportJson?.();
+    closeMobileSidebar();
+  });
 
   bottomRow.append(btnSettings, btnExport, btnImport);
   root.append(topRow, buttonArea, bottomRow);
+
+  document.getElementById('sidebar-backdrop').addEventListener('click', closeMobileSidebar);
 }
 
 export function loadButtons(buttonConfig) {
@@ -71,6 +102,7 @@ export function loadButtons(buttonConfig) {
       button.textContent = btn.label;
       button.addEventListener('click', () => {
         callbacks.onProjectClick?.(btn.project, btn.activity, btn.detail);
+        closeMobileSidebar();
       });
       grid.appendChild(button);
     }

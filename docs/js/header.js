@@ -27,6 +27,12 @@ function shiftDate(delta) {
   callbacks.onDateChanged?.(viewDate);
 }
 
+let onMenuToggle = null;
+
+export function setMenuToggle(fn) {
+  onMenuToggle = fn;
+}
+
 export function initHeader(cb) {
   callbacks = cb;
 
@@ -35,6 +41,12 @@ export function initHeader(cb) {
 
   const navRow = document.createElement('div');
   navRow.className = 'header-nav';
+
+  const btnMenu = document.createElement('button');
+  btnMenu.className = 'btn-secondary header-menu-btn';
+  btnMenu.textContent = '\u2630';
+  btnMenu.title = 'Menu';
+  btnMenu.addEventListener('click', () => onMenuToggle?.());
 
   const btnPrev = document.createElement('button');
   btnPrev.className = 'btn-secondary';
@@ -55,7 +67,7 @@ export function initHeader(cb) {
   btnToday.textContent = 'Today';
   btnToday.addEventListener('click', () => goToday());
 
-  navRow.append(btnPrev, elDateLabel, btnNext, btnToday);
+  navRow.append(btnMenu, btnPrev, elDateLabel, btnNext, btnToday);
 
   const statsRow = document.createElement('div');
   statsRow.className = 'header-stats';
