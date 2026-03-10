@@ -1,0 +1,11 @@
+{
+  "hours_per_day": 8.0,
+  "working_days_this_week": 5.0,
+  "break_projects": [
+    "BREAK"
+  ],
+  "theme": "dark",
+  "window_width": 1200,
+  "window_height": 700,
+  "db_path": ""
+}

@@ -1,0 +1,11 @@
+{
+  "groups": [
+    {
+      "name": "BREAK",
+      "buttons": [
+        {"label": "Break", "project": "BREAK", "activity": "Break"},
+        {"label": "Lunch", "project": "BREAK", "activity": "Lunch"}
+      ]
+    }
+  ]
+}
