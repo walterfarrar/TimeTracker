@@ -13,7 +13,10 @@ from .time_calc import compute_durations, compute_running_totals, format_duratio
 COL_HEADERS = ["Date", "Time", "Project", "Activity", "Detail", "Duration", "Total", ""]
 COL_WIDTHS = [90, 100, 130, 120, 120, 80, 80, 30]
 
-HOVER_BORDER = "#3a86ff"
+HOVER_BG = ("gray80", "#2a3f5f")
+NORMAL_BG = "transparent"
+BREAK_BG = ("#d4c4c4", "#3a3a3a")
+BREAK_HOVER_BG = ("#c4b4b4", "#3f4a5f")
 
 
 class LogView(ctk.CTkFrame):
@@ -78,17 +81,15 @@ class LogView(ctk.CTkFrame):
 
         for row_idx, (entry, dur, run) in enumerate(zip(entries, durations, running)):
             is_break = entry.project in break_projects
-            row_bg = "#3a3a3a" if is_break else "transparent"
+            normal_bg = BREAK_BG if is_break else NORMAL_BG
+            hover_bg = BREAK_HOVER_BG if is_break else HOVER_BG
 
             row_frame = ctk.CTkFrame(
-                self._scroll, fg_color=row_bg,
-                border_width=0, border_color=HOVER_BORDER,
-                corner_radius=4, height=28,
+                self._scroll, fg_color=normal_bg, corner_radius=6,
             )
             row_frame.grid(row=row_idx, column=0, sticky="ew", padx=0, pady=1)
-            row_frame.grid_propagate(False)
-            for c in range(len(COL_WIDTHS)):
-                row_frame.grid_columnconfigure(c, weight=0)
+            row_frame._normal_bg = normal_bg
+            row_frame._hover_bg = hover_bg
 
             values = [
                 entry.date_str,
@@ -147,7 +148,7 @@ class LogView(ctk.CTkFrame):
         pending = self._hover_after_ids.pop(row_id, None)
         if pending:
             self.after_cancel(pending)
-        row_frame.configure(border_width=1)
+        row_frame.configure(fg_color=row_frame._hover_bg)
         pencil_btn.grid()
 
     def _on_row_leave(self, row_id: str, row_frame: ctk.CTkFrame,
@@ -162,7 +163,7 @@ class LogView(ctk.CTkFrame):
     def _do_row_leave(self, row_id: str, row_frame: ctk.CTkFrame,
                       pencil_btn: ctk.CTkButton) -> None:
         self._hover_after_ids.pop(row_id, None)
-        row_frame.configure(border_width=0)
+        row_frame.configure(fg_color=row_frame._normal_bg)
         pencil_btn.grid_remove()
 
     def _show_context_menu(self, entry: TimeEntry, pencil_btn: ctk.CTkButton) -> None:
