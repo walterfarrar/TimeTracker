@@ -14,7 +14,6 @@ COL_HEADERS = ["Date", "Time", "Project", "Activity", "Detail", "Duration", "Tot
 COL_WIDTHS = [90, 100, 130, 120, 120, 80, 80, 30]
 
 HOVER_BORDER = "#3a86ff"
-NORMAL_BORDER = "transparent"
 
 
 class LogView(ctk.CTkFrame):
@@ -82,7 +81,7 @@ class LogView(ctk.CTkFrame):
 
             row_frame = ctk.CTkFrame(
                 self._scroll, fg_color=row_bg,
-                border_width=1, border_color=NORMAL_BORDER,
+                border_width=0, border_color=HOVER_BORDER,
                 corner_radius=4, height=28,
             )
             row_frame.grid(row=row_idx, column=0, sticky="ew", padx=0, pady=1)
@@ -143,11 +142,11 @@ class LogView(ctk.CTkFrame):
         self._scroll.after(50, lambda: self._scroll._parent_canvas.yview_moveto(1.0))
 
     def _on_row_enter(self, row_frame: ctk.CTkFrame, pencil_btn: ctk.CTkButton) -> None:
-        row_frame.configure(border_color=HOVER_BORDER)
+        row_frame.configure(border_width=1)
         pencil_btn.grid()
 
     def _on_row_leave(self, row_frame: ctk.CTkFrame, pencil_btn: ctk.CTkButton) -> None:
-        row_frame.configure(border_color=NORMAL_BORDER)
+        row_frame.configure(border_width=0)
         pencil_btn.grid_remove()
 
     def _show_context_menu(self, entry: TimeEntry, pencil_btn: ctk.CTkButton) -> None:
