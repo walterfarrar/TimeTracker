@@ -330,7 +330,15 @@ class TimeTrackerApp(ctk.CTk):
         else:
             self.tray.update_tooltip("Time Tracker")
 
+    def _save_window_geometry(self) -> None:
+        self.settings.window_width = self.winfo_width()
+        self.settings.window_height = self.winfo_height()
+        self.settings.window_x = self.winfo_x()
+        self.settings.window_y = self.winfo_y()
+        self.settings.save(get_settings_path())
+
     def _on_minimize_to_tray(self) -> None:
+        self._save_window_geometry()
         self.withdraw()
 
     def _on_close(self) -> None:
@@ -339,10 +347,6 @@ class TimeTrackerApp(ctk.CTk):
         if self._live_tick_id:
             self.after_cancel(self._live_tick_id)
         self.tray.stop()
-        self.settings.window_width = self.winfo_width()
-        self.settings.window_height = self.winfo_height()
-        self.settings.window_x = self.winfo_x()
-        self.settings.window_y = self.winfo_y()
-        self.settings.save(get_settings_path())
+        self._save_window_geometry()
         self.db.close()
         self.destroy()
