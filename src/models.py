@@ -119,6 +119,8 @@ class AppSettings:
     theme: str = "dark"
     window_width: int = 1200
     window_height: int = 700
+    window_x: int | None = None
+    window_y: int | None = None
     db_path: str = ""
 
     def effective_db_path(self) -> str:
@@ -136,6 +138,8 @@ class AppSettings:
             "theme": self.theme,
             "window_width": self.window_width,
             "window_height": self.window_height,
+            "window_x": self.window_x,
+            "window_y": self.window_y,
             "db_path": self.db_path,
         }
 
@@ -148,6 +152,8 @@ class AppSettings:
             theme=d.get("theme", "dark"),
             window_width=d.get("window_width", 1200),
             window_height=d.get("window_height", 700),
+            window_x=d.get("window_x"),
+            window_y=d.get("window_y"),
             db_path=d.get("db_path", ""),
         )
 

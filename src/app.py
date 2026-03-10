@@ -34,7 +34,10 @@ class TimeTrackerApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.title("Time Tracker")
-        self.geometry(f"{self.settings.window_width}x{self.settings.window_height}")
+        geo = f"{self.settings.window_width}x{self.settings.window_height}"
+        if self.settings.window_x is not None and self.settings.window_y is not None:
+            geo += f"+{self.settings.window_x}+{self.settings.window_y}"
+        self.geometry(geo)
         self.minsize(800, 400)
 
         self.db = Database(self.settings.effective_db_path())
@@ -336,10 +339,10 @@ class TimeTrackerApp(ctk.CTk):
         if self._live_tick_id:
             self.after_cancel(self._live_tick_id)
         self.tray.stop()
-        w = self.winfo_width()
-        h = self.winfo_height()
-        self.settings.window_width = w
-        self.settings.window_height = h
+        self.settings.window_width = self.winfo_width()
+        self.settings.window_height = self.winfo_height()
+        self.settings.window_x = self.winfo_x()
+        self.settings.window_y = self.winfo_y()
         self.settings.save(get_settings_path())
         self.db.close()
         self.destroy()
