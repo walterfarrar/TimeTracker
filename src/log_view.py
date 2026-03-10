@@ -37,6 +37,7 @@ class LogView(ctk.CTkFrame):
         self._last_dur_label: Optional[ctk.CTkLabel] = None
         self._last_run_label: Optional[ctk.CTkLabel] = None
         self._base_running: float = 0.0
+        self._hover_after_ids: dict[str, str] = {}
 
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -124,11 +125,11 @@ class LogView(ctk.CTkFrame):
                 command=lambda e=entry, pb=pencil_btn: self._show_context_menu(e, pb)
             )
 
-            row_frame.bind("<Enter>", lambda ev, rf=row_frame, pb=pencil_btn: self._on_row_enter(rf, pb))
-            row_frame.bind("<Leave>", lambda ev, rf=row_frame, pb=pencil_btn: self._on_row_leave(rf, pb))
-            for lbl in labels:
-                lbl.bind("<Enter>", lambda ev, rf=row_frame, pb=pencil_btn: self._on_row_enter(rf, pb))
-                lbl.bind("<Leave>", lambda ev, rf=row_frame, pb=pencil_btn: self._on_row_leave(rf, pb))
+            row_id = str(row_frame)
+            all_widgets = [row_frame] + labels + [pencil_btn]
+            for w in all_widgets:
+                w.bind("<Enter>", lambda ev, rid=row_id, rf=row_frame, pb=pencil_btn: self._on_row_enter(rid, rf, pb))
+                w.bind("<Leave>", lambda ev, rid=row_id, rf=row_frame, pb=pencil_btn: self._on_row_leave(rid, rf, pb))
 
             self._row_frames.append(row_frame)
             self._entry_rows.append((entry, labels))
@@ -141,11 +142,26 @@ class LogView(ctk.CTkFrame):
 
         self._scroll.after(50, lambda: self._scroll._parent_canvas.yview_moveto(1.0))
 
-    def _on_row_enter(self, row_frame: ctk.CTkFrame, pencil_btn: ctk.CTkButton) -> None:
+    def _on_row_enter(self, row_id: str, row_frame: ctk.CTkFrame,
+                      pencil_btn: ctk.CTkButton) -> None:
+        pending = self._hover_after_ids.pop(row_id, None)
+        if pending:
+            self.after_cancel(pending)
         row_frame.configure(border_width=1)
         pencil_btn.grid()
 
-    def _on_row_leave(self, row_frame: ctk.CTkFrame, pencil_btn: ctk.CTkButton) -> None:
+    def _on_row_leave(self, row_id: str, row_frame: ctk.CTkFrame,
+                      pencil_btn: ctk.CTkButton) -> None:
+        pending = self._hover_after_ids.pop(row_id, None)
+        if pending:
+            self.after_cancel(pending)
+        self._hover_after_ids[row_id] = self.after(
+            50, lambda: self._do_row_leave(row_id, row_frame, pencil_btn)
+        )
+
+    def _do_row_leave(self, row_id: str, row_frame: ctk.CTkFrame,
+                      pencil_btn: ctk.CTkButton) -> None:
+        self._hover_after_ids.pop(row_id, None)
         row_frame.configure(border_width=0)
         pencil_btn.grid_remove()
 
