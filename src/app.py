@@ -6,7 +6,7 @@ from typing import Optional
 import customtkinter as ctk
 
 from .database import Database
-from .export import prompt_and_export, prompt_and_export_week
+from .export import prompt_and_export, prompt_and_export_week, export_all_json, import_all_json
 from .header import HeaderBar
 from .log_view import LogView
 from .models import AppSettings, ButtonConfig, TimeEntry
@@ -50,6 +50,8 @@ class TimeTrackerApp(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self._on_minimize_to_tray)
         self.bind("<Control-e>", lambda e: self._export_today())
         self.bind("<Control-E>", lambda e: self._export_week())
+        self.bind("<Control-j>", lambda e: self._export_json())
+        self.bind("<Control-J>", lambda e: self._import_json())
 
         self._auto_refresh_id: Optional[str] = None
         self._live_tick_id: Optional[str] = None
@@ -207,6 +209,22 @@ class TimeTrackerApp(ctk.CTk):
 
     def _export_week(self) -> None:
         prompt_and_export_week(self.db, self.settings.break_projects)
+
+    def _export_json(self) -> None:
+        export_all_json(self.db, self.settings, self.button_config)
+
+    def _import_json(self) -> None:
+        payload = import_all_json(self.db)
+        if payload:
+            if "buttons" in payload:
+                self.button_config = ButtonConfig.from_dict(payload["buttons"])
+                self.button_config.save(get_buttons_path())
+                self._load_sidebar_buttons()
+            if "settings" in payload:
+                self.settings = AppSettings.from_dict(payload["settings"])
+                self.settings.save(get_settings_path())
+                self.header.set_days(self.settings.working_days_this_week)
+            self.refresh_log()
 
     def _update_header_live(self) -> None:
         """Compute live totals by adding elapsed time since last entry."""
