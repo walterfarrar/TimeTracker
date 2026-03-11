@@ -17,17 +17,21 @@ def format_duration(seconds: float) -> str:
     return f"{sign}{h}:{m:02d}:{s:02d}"
 
 
-def compute_durations(entries: list[TimeEntry]) -> list[Optional[float]]:
+def compute_durations(entries: list[TimeEntry],
+                      live: bool = False) -> list[Optional[float]]:
     """Compute how long was spent on each entry's project.
 
     Duration for entry i = entry[i+1].timestamp - entry[i].timestamp,
     i.e. the time spent working on entry i's project before the next
-    entry arrived. The last entry has no duration yet (None).
+    entry arrived. The last entry has no duration yet (None), unless
+    *live* is True in which case elapsed time since it started is used.
     """
     durations: list[Optional[float]] = []
     for i, entry in enumerate(entries):
         if i < len(entries) - 1:
             durations.append(entries[i + 1].timestamp - entry.timestamp)
+        elif live:
+            durations.append(datetime.now().timestamp() - entry.timestamp)
         else:
             durations.append(None)
     return durations
@@ -86,14 +90,17 @@ def compute_time_remaining(week_work_seconds: float,
 
 
 def aggregate_time(entries: list[TimeEntry],
-                   break_projects: list[str]) -> dict[str, dict[str, float]]:
+                   break_projects: list[str],
+                   live: bool = False) -> dict[str, dict[str, float]]:
     """Aggregate time by project, then by activity within each project.
 
     Returns {project: {"_total": secs, activity1: secs, activity2: secs, ...}}.
     Excludes break projects and END_OF_DAY.
     Processes entries per-day so durations don't span across days.
+    When *live* is True, today's last entry includes elapsed time to now.
     """
     skip = set(break_projects) | {"END_OF_DAY"}
+    today_str = datetime.now().strftime("%m/%d/%Y")
 
     by_date: dict[str, list[TimeEntry]] = {}
     for entry in entries:
@@ -101,8 +108,11 @@ def aggregate_time(entries: list[TimeEntry],
 
     result: dict[str, dict[str, float]] = {}
 
-    for date_entries in by_date.values():
-        durations = compute_durations(date_entries)
+    for date_str, date_entries in by_date.items():
+        is_today = live and date_str == today_str
+        day_ended = date_entries[-1].project == "END_OF_DAY"
+        use_live = is_today and not day_ended
+        durations = compute_durations(date_entries, live=use_live)
         for entry, dur in zip(date_entries, durations):
             if dur is None or entry.project in skip:
                 continue
@@ -120,6 +130,7 @@ def aggregate_by_day_and_group(
     entries: list[TimeEntry],
     break_projects: list[str],
     project_to_group: dict[str, str],
+    live: bool = False,
 ) -> tuple[list[str], list[str], dict[str, dict[str, float]]]:
     """Aggregate work time by day-of-week and group.
 
@@ -127,8 +138,10 @@ def aggregate_by_day_and_group(
       day_labels = sorted list of date strings that had entries
       group_names = sorted list of unique group names
       data = {day_label: {group_name: seconds, ...}}
+    When *live* is True, today's last entry includes elapsed time to now.
     """
     skip = set(break_projects) | {"END_OF_DAY"}
+    today_str = datetime.now().strftime("%m/%d/%Y")
 
     by_date: dict[str, list[TimeEntry]] = {}
     for entry in entries:
@@ -140,7 +153,10 @@ def aggregate_by_day_and_group(
     all_groups: set[str] = set()
 
     for date_str, date_entries in by_date.items():
-        durations = compute_durations(date_entries)
+        is_today = live and date_str == today_str
+        day_ended = date_entries[-1].project == "END_OF_DAY"
+        use_live = is_today and not day_ended
+        durations = compute_durations(date_entries, live=use_live)
         dt = date_entries[0].dt
         day_label = f"{day_names[dt.weekday()]} {dt.strftime('%m/%d')}"
         day_order[day_label] = dt

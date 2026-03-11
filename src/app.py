@@ -304,6 +304,8 @@ class TimeTrackerApp(ctk.CTk):
         self._update_header_live()
         if not self._day_ended:
             self.log_view.tick_live_duration()
+            if self._tabview.get() == "Reports":
+                self.reports_view.live_tick()
         self._live_tick_id = self.after(1000, self._start_live_tick)
 
     def _start_auto_refresh(self) -> None:
