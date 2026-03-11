@@ -10,6 +10,9 @@ from .models import TimeEntry
 class EditEntryDialog(ctk.CTkToplevel):
     """Dialog for editing, deleting, or adding a time entry."""
 
+    _last_x: int | None = None
+    _last_y: int | None = None
+
     def __init__(self, master, entry: TimeEntry,
                  project_list: list[str] | None = None,
                  mode: str = "edit"):
@@ -26,7 +29,10 @@ class EditEntryDialog(ctk.CTkToplevel):
             self._project_list = [entry.project] + self._project_list
 
         self.title("Add Entry" if mode == "add" else "Edit Entry")
-        self.geometry("400x280")
+        if EditEntryDialog._last_x is not None:
+            self.geometry(f"400x280+{EditEntryDialog._last_x}+{EditEntryDialog._last_y}")
+        else:
+            self.geometry("400x280")
         self.resizable(False, False)
         self.transient(master)
         self.grab_set()
@@ -94,6 +100,10 @@ class EditEntryDialog(ctk.CTkToplevel):
                 continue
         return None
 
+    def _remember_position(self) -> None:
+        EditEntryDialog._last_x = self.winfo_x()
+        EditEntryDialog._last_y = self.winfo_y()
+
     def _save(self) -> None:
         ts = self._parse_timestamp()
         if ts is None:
@@ -103,12 +113,15 @@ class EditEntryDialog(ctk.CTkToplevel):
         self.activity = self._activity_var.get().strip()
         self.timestamp = ts
         self.result = "save"
+        self._remember_position()
         self.destroy()
 
     def _delete(self) -> None:
         self.result = "delete"
+        self._remember_position()
         self.destroy()
 
     def _cancel(self) -> None:
         self.result = None
+        self._remember_position()
         self.destroy()

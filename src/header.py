@@ -125,8 +125,8 @@ _BAND_COLORS = [
     "#3080d0",  # blue
     "#8050c0",  # purple
 ]
-_BAND_WIDTH = 0.16
-_TRANS_WIDTH = 0.05
+_BAND_WIDTH = 0.176
+_TRANS_WIDTH = 0.03
 
 
 def _progress_color(progress: float) -> str:
@@ -166,6 +166,7 @@ class HeaderBar(ctk.CTkFrame):
         self._view_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         self._work_state = "idle"
         self._anim_after_id: Optional[str] = None
+        self._current_bar_color: str = _BAND_COLORS[0]
 
         self.grid_columnconfigure(0, weight=1)
 
@@ -295,6 +296,13 @@ class HeaderBar(ctk.CTkFrame):
     def set_days(self, working_days: float) -> None:
         self._days_var.set(str(working_days))
 
+    def _nav_tint(self, bar_color: str) -> str:
+        """Create a subtle background tint from a progress bar color."""
+        is_dark = ctk.get_appearance_mode().lower() == "dark"
+        base = "#1a1a1a" if is_dark else "#f4f4f4"
+        blend = 0.35 if is_dark else 0.25
+        return _lerp_color(base, bar_color, blend)
+
     def set_work_state(self, state: str) -> None:
         """Set the work state: 'working', 'break', or 'idle'.
         Animates the nav bar color transition."""
@@ -307,8 +315,11 @@ class HeaderBar(ctk.CTkFrame):
             self._anim_after_id = None
 
         is_dark = ctk.get_appearance_mode().lower() == "dark"
-        target = _STATE_COLORS.get(state, _STATE_COLORS["idle"])
-        target_hex = target[1 if is_dark else 0]
+        if state == "working":
+            target_hex = self._nav_tint(self._current_bar_color)
+        else:
+            target = _STATE_COLORS.get(state, _STATE_COLORS["idle"])
+            target_hex = target[1 if is_dark else 0]
         start_hex = self._nav_current_hex
 
         if start_hex == target_hex:
@@ -346,6 +357,13 @@ class HeaderBar(ctk.CTkFrame):
         progress = min(week_worked_secs / max(week_target_secs, 1), 1.0)
 
         bar_color = _progress_color(progress)
+        self._current_bar_color = bar_color
+
+        if self._work_state == "working":
+            tint = self._nav_tint(bar_color)
+            if tint != self._nav_current_hex:
+                self._nav.configure(fg_color=tint)
+                self._nav_current_hex = tint
 
         self._progress_text.update_values(
             progress, format_duration(remaining_secs),

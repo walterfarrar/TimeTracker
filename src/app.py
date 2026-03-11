@@ -42,6 +42,18 @@ class TimeTrackerApp(ctk.CTk):
 
         self.db = Database(self.settings.effective_db_path())
 
+        self._live_tick_id: Optional[str] = None
+        self._tray_tick: int = 0
+        self._cached_worked_today: float = 0.0
+        self._cached_week_worked: float = 0.0
+        self._last_entry_timestamp: float = 0.0
+        self._last_entry_is_break: bool = False
+        self._day_ended: bool = False
+
+        self._today_last_timestamp: float = 0.0
+        self._today_last_is_break: bool = False
+        self._today_ended: bool = False
+
         self._build_ui()
         self._load_sidebar_buttons()
         self.header.set_days(self.settings.working_days_this_week)
@@ -56,14 +68,6 @@ class TimeTrackerApp(ctk.CTk):
         self.bind("<Control-j>", lambda e: self._export_json())
         self.bind("<Control-J>", lambda e: self._import_json())
 
-        self._auto_refresh_id: Optional[str] = None
-        self._live_tick_id: Optional[str] = None
-        self._cached_worked_today: float = 0.0
-        self._cached_week_worked: float = 0.0
-        self._last_entry_timestamp: float = 0.0
-        self._last_entry_is_break: bool = False
-        self._day_ended: bool = False
-        self._start_auto_refresh()
         self._start_live_tick()
 
     def _build_ui(self) -> None:
@@ -167,6 +171,18 @@ class TimeTrackerApp(ctk.CTk):
         self._cached_week_worked = compute_week_work_time(
             week_entries, self.settings.break_projects)
 
+        today_entries = self.db.get_entries_for_date(
+            today.replace(hour=0, minute=0, second=0, microsecond=0))
+        if today_entries:
+            last_today = today_entries[-1]
+            self._today_last_timestamp = last_today.timestamp
+            self._today_last_is_break = last_today.project in self.settings.break_projects
+            self._today_ended = last_today.project == "END_OF_DAY"
+        else:
+            self._today_last_timestamp = 0.0
+            self._today_last_is_break = False
+            self._today_ended = False
+
         if entries and self.header.is_viewing_today:
             last = entries[-1]
             self._last_entry_timestamp = last.timestamp
@@ -177,9 +193,11 @@ class TimeTrackerApp(ctk.CTk):
             self._last_entry_is_break = False
             self._day_ended = not self.header.is_viewing_today
 
-        if self._day_ended or self._last_entry_timestamp == 0.0:
+        if not self.header.is_viewing_today:
             self.header.set_work_state("idle")
-        elif self._last_entry_is_break:
+        elif self._today_ended or self._today_last_timestamp == 0.0:
+            self.header.set_work_state("idle")
+        elif self._today_last_is_break:
             self.header.set_work_state("break")
         else:
             self.header.set_work_state("working")
@@ -288,15 +306,17 @@ class TimeTrackerApp(ctk.CTk):
 
     def _update_header_live(self) -> None:
         """Compute live totals by adding elapsed time since last entry."""
-        if self._day_ended or self._last_entry_is_break:
-            live_worked_today = self._cached_worked_today
-            live_week_worked = self._cached_week_worked
+        today_elapsed = 0.0
+        if (not self._today_ended and not self._today_last_is_break
+                and self._today_last_timestamp > 0):
+            today_elapsed = datetime.now().timestamp() - self._today_last_timestamp
+
+        live_week_worked = self._cached_week_worked + today_elapsed
+
+        if self.header.is_viewing_today:
+            live_worked_today = self._cached_worked_today + today_elapsed
         else:
-            elapsed = 0.0
-            if self._last_entry_timestamp > 0:
-                elapsed = datetime.now().timestamp() - self._last_entry_timestamp
-            live_worked_today = self._cached_worked_today + elapsed
-            live_week_worked = self._cached_week_worked + elapsed
+            live_worked_today = self._cached_worked_today
 
         remaining = compute_time_remaining(
             live_week_worked,
@@ -310,28 +330,26 @@ class TimeTrackerApp(ctk.CTk):
     def _start_live_tick(self) -> None:
         """Update the header counters and current entry duration every second."""
         self._update_header_live()
-        if not self._day_ended:
-            self.log_view.tick_live_duration()
+        if not self._today_ended:
+            if self.header.is_viewing_today:
+                self.log_view.tick_live_duration()
             if self._tabview.get() == "Reports":
                 self.reports_view.live_tick()
+        self._tray_tick += 1
+        if self._tray_tick % 60 == 0:
+            self._update_tray_tooltip()
         self._live_tick_id = self.after(1000, self._start_live_tick)
-
-    def _start_auto_refresh(self) -> None:
-        """Re-query the database and update the log table every 60 seconds."""
-        self.refresh_log()
-        self._update_tray_tooltip()
-        self._auto_refresh_id = self.after(60_000, self._start_auto_refresh)
 
     def _update_tray_tooltip(self) -> None:
         elapsed = 0.0
-        if self._last_entry_timestamp > 0:
-            elapsed = datetime.now().timestamp() - self._last_entry_timestamp
-        if self._last_entry_is_break:
+        if self._today_last_timestamp > 0:
+            elapsed = datetime.now().timestamp() - self._today_last_timestamp
+        if self._today_last_is_break:
             worked = self._cached_worked_today
         else:
             worked = self._cached_worked_today + elapsed
 
-        if self._last_entry_timestamp > 0:
+        if self._today_last_timestamp > 0:
             last = self.db.get_last_entry()
             project = last.project if last else "?"
             self.tray.update_tooltip(
@@ -352,8 +370,6 @@ class TimeTrackerApp(ctk.CTk):
         self.withdraw()
 
     def _on_close(self) -> None:
-        if self._auto_refresh_id:
-            self.after_cancel(self._auto_refresh_id)
         if self._live_tick_id:
             self.after_cancel(self._live_tick_id)
         self.tray.stop()
