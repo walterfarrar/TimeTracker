@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tkinter as tk
 from datetime import datetime, timedelta
 from typing import Callable, Optional
 
@@ -8,6 +9,113 @@ import customtkinter as ctk
 from .time_calc import format_duration
 
 DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+class _ProgressText(tk.Canvas):
+    """Canvas that draws a rounded progress bar with outlined text on top."""
+
+    def __init__(self, master, height: int = 36, corner_radius: int = 10,
+                 **kwargs):
+        super().__init__(master, height=height, highlightthickness=0, **kwargs)
+        self._h = height
+        self._cr = corner_radius
+        self._progress = 0.0
+        self._text = "0:00:00"
+        self._fill_color = "#2980b9"
+        self._text_color = "#ffffff"
+        self._text_warn_color: str | None = None
+
+        is_dark = ctk.get_appearance_mode().lower() == "dark"
+        self._track_color = "#383838" if is_dark else "#c8c8c8"
+        self._outline_color = "#000000" if is_dark else "#555555"
+        self.configure(bg="#2b2b2b" if is_dark else "#e8e8e8")
+
+        self.bind("<Configure>", self._redraw)
+
+    def update_values(self, progress: float, text: str,
+                      fill_color: str, text_color: str | None = None) -> None:
+        self._progress = max(0.0, min(progress, 1.0))
+        self._text = text
+        self._fill_color = fill_color
+        self._text_warn_color = text_color
+        self._redraw()
+
+    def _round_rect(self, x1, y1, x2, y2, r, **kw) -> None:
+        r = min(r, (x2 - x1) / 2, (y2 - y1) / 2)
+        self.create_arc(x1, y1, x1 + 2 * r, y1 + 2 * r,
+                        start=90, extent=90, style="pieslice", **kw)
+        self.create_arc(x2 - 2 * r, y1, x2, y1 + 2 * r,
+                        start=0, extent=90, style="pieslice", **kw)
+        self.create_arc(x2 - 2 * r, y2 - 2 * r, x2, y2,
+                        start=270, extent=90, style="pieslice", **kw)
+        self.create_arc(x1, y2 - 2 * r, x1 + 2 * r, y2,
+                        start=180, extent=90, style="pieslice", **kw)
+        self.create_rectangle(x1 + r, y1, x2 - r, y2, **kw)
+        self.create_rectangle(x1, y1 + r, x1 + r, y2 - r, **kw)
+        self.create_rectangle(x2 - r, y1 + r, x2, y2 - r, **kw)
+
+    def _redraw(self, _event=None) -> None:
+        self.delete("all")
+        w = self.winfo_width()
+        h = self._h
+        cr = self._cr
+        if w < 2:
+            return
+
+        self._round_rect(0, 0, w, h, cr,
+                         fill=self._track_color, outline="")
+
+        fill_w = int(w * self._progress)
+        if fill_w > 0:
+            fill_w = max(fill_w, cr * 2)
+            fill_w = min(fill_w, w)
+            self._round_rect(0, 0, fill_w, h, cr,
+                             fill=self._fill_color, outline="")
+
+        cx, cy = w / 2, h / 2
+        font = ("Segoe UI", 15, "bold")
+        fg = self._text_warn_color or self._text_color
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                self.create_text(cx + dx, cy + dy, text=self._text,
+                                 font=font, fill=self._outline_color)
+        self.create_text(cx, cy, text=self._text, font=font, fill=fg)
+
+
+_STATE_COLORS = {
+    "working": ("#d4edda", "#1a3a2a"),
+    "break":   ("#fff3cd", "#3a351a"),
+    "idle":    ("gray92",  "gray14"),
+}
+
+_ANIM_STEPS = 10
+_ANIM_INTERVAL_MS = 30
+
+
+def _hex_to_rgb(color: str) -> tuple[int, int, int]:
+    if color.startswith("#"):
+        c = color.lstrip("#")
+        return int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+    from tkinter import Frame
+    _tmp = Frame()
+    rgb = _tmp.winfo_rgb(color)
+    _tmp.destroy()
+    return rgb[0] >> 8, rgb[1] >> 8, rgb[2] >> 8
+
+
+def _rgb_to_hex(r: int, g: int, b: int) -> str:
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def _lerp_color(c1: str, c2: str, t: float) -> str:
+    r1, g1, b1 = _hex_to_rgb(c1)
+    r2, g2, b2 = _hex_to_rgb(c2)
+    r = int(r1 + (r2 - r1) * t)
+    g = int(g1 + (g2 - g1) * t)
+    b = int(b1 + (b2 - b1) * t)
+    return _rgb_to_hex(r, g, b)
 
 
 class HeaderBar(ctk.CTkFrame):
@@ -21,6 +129,8 @@ class HeaderBar(ctk.CTkFrame):
         self._on_days_changed = on_days_changed
         self._on_date_changed = on_date_changed
         self._view_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self._work_state = "idle"
+        self._anim_after_id: Optional[str] = None
 
         self.grid_columnconfigure(0, weight=1)
 
@@ -28,7 +138,11 @@ class HeaderBar(ctk.CTkFrame):
         self._build_stats(row=1)
 
     def _build_date_nav(self, row: int) -> None:
-        nav = ctk.CTkFrame(self, fg_color="transparent")
+        is_dark = ctk.get_appearance_mode().lower() == "dark"
+        idle_color = _STATE_COLORS["idle"][1 if is_dark else 0]
+        self._nav = ctk.CTkFrame(self, fg_color=idle_color, corner_radius=10)
+        self._nav_current_hex = idle_color
+        nav = self._nav
         nav.grid(row=row, column=0, sticky="ew", padx=10, pady=(6, 2))
         nav.grid_columnconfigure(1, weight=1)
 
@@ -86,11 +200,12 @@ class HeaderBar(ctk.CTkFrame):
         self._worked_value = ctk.CTkLabel(stats, text="0:00:00", font=value_font)
         self._worked_value.grid(row=1, column=1, padx=10, pady=(0, 4))
 
-        # Remaining this week
+        # Remaining this week (with progress bar)
         ctk.CTkLabel(stats, text="Remaining This Week", font=label_font,
                      text_color="gray70").grid(row=0, column=2, padx=10, pady=(4, 0))
-        self._remaining_value = ctk.CTkLabel(stats, text="0:00:00", font=value_font)
-        self._remaining_value.grid(row=1, column=2, padx=10, pady=(0, 4))
+
+        self._progress_text = _ProgressText(stats, height=36, corner_radius=10)
+        self._progress_text.grid(row=1, column=2, padx=10, pady=(0, 4), sticky="ew")
 
     def _update_date_label(self) -> None:
         day_name = DAY_NAMES[self._view_date.weekday()]
@@ -145,14 +260,65 @@ class HeaderBar(ctk.CTkFrame):
     def set_days(self, working_days: float) -> None:
         self._days_var.set(str(working_days))
 
+    def set_work_state(self, state: str) -> None:
+        """Set the work state: 'working', 'break', or 'idle'.
+        Animates the nav bar color transition."""
+        if state == self._work_state:
+            return
+        self._work_state = state
+
+        if self._anim_after_id:
+            self.after_cancel(self._anim_after_id)
+            self._anim_after_id = None
+
+        is_dark = ctk.get_appearance_mode().lower() == "dark"
+        target = _STATE_COLORS.get(state, _STATE_COLORS["idle"])
+        target_hex = target[1 if is_dark else 0]
+        start_hex = self._nav_current_hex
+
+        if start_hex == target_hex:
+            return
+
+        step = [0]
+
+        def _animate():
+            step[0] += 1
+            t = step[0] / _ANIM_STEPS
+            color = _lerp_color(start_hex, target_hex, t)
+            self._nav.configure(fg_color=color)
+            self._nav_current_hex = color
+            if step[0] < _ANIM_STEPS:
+                self._anim_after_id = self.after(_ANIM_INTERVAL_MS, _animate)
+            else:
+                self._nav_current_hex = target_hex
+                self._anim_after_id = None
+
+        _animate()
+
     def update_stats(self, worked_today_secs: float,
-                     remaining_secs: float) -> None:
+                     remaining_secs: float,
+                     week_worked_secs: float = 0.0,
+                     week_target_secs: float = 1.0) -> None:
         self._worked_value.configure(text=format_duration(worked_today_secs))
-        self._remaining_value.configure(text=format_duration(remaining_secs))
 
         if remaining_secs < 0:
-            self._remaining_value.configure(text_color="#e74c3c")
+            text_color = "#e74c3c"
         elif remaining_secs < 3600:
-            self._remaining_value.configure(text_color="#f39c12")
+            text_color = "#f39c12"
         else:
-            self._remaining_value.configure(text_color=("gray10", "gray90"))
+            text_color = None
+
+        progress = min(week_worked_secs / max(week_target_secs, 1), 1.0)
+
+        if progress >= 1.0:
+            bar_color = "#f39c12"
+        elif progress >= 0.8:
+            bar_color = "#27ae60"
+        elif progress >= 0.5:
+            bar_color = "#1abc9c"
+        else:
+            bar_color = "#2980b9"
+
+        self._progress_text.update_values(
+            progress, format_duration(remaining_secs),
+            bar_color, text_color)

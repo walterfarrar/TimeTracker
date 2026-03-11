@@ -177,6 +177,13 @@ class TimeTrackerApp(ctk.CTk):
             self._last_entry_is_break = False
             self._day_ended = not self.header.is_viewing_today
 
+        if self._day_ended or self._last_entry_timestamp == 0.0:
+            self.header.set_work_state("idle")
+        elif self._last_entry_is_break:
+            self.header.set_work_state("break")
+        else:
+            self.header.set_work_state("working")
+
         self._update_header_live()
 
     def _get_project_list(self) -> list[str]:
@@ -297,7 +304,8 @@ class TimeTrackerApp(ctk.CTk):
             self.settings.hours_per_day,
         )
 
-        self.header.update_stats(live_worked_today, remaining)
+        target = self.settings.working_days_this_week * self.settings.hours_per_day * 3600
+        self.header.update_stats(live_worked_today, remaining, live_week_worked, target)
 
     def _start_live_tick(self) -> None:
         """Update the header counters and current entry duration every second."""
