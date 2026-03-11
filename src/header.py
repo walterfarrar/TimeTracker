@@ -118,6 +118,41 @@ def _lerp_color(c1: str, c2: str, t: float) -> str:
     return _rgb_to_hex(r, g, b)
 
 
+_BAND_COLORS = [
+    "#e06060",  # light red
+    "#e8a030",  # orange / yellow
+    "#40b050",  # green
+    "#3080d0",  # blue
+    "#8050c0",  # purple
+]
+_BAND_WIDTH = 0.16
+_TRANS_WIDTH = 0.05
+
+
+def _progress_color(progress: float) -> str:
+    colors = _BAND_COLORS
+    n = len(colors)
+    if progress <= 0:
+        return colors[0]
+    if progress >= 1:
+        return colors[-1]
+
+    pos = 0.0
+    for i in range(n):
+        band_end = pos + _BAND_WIDTH
+        if progress <= band_end:
+            return colors[i]
+        pos = band_end
+        if i < n - 1:
+            trans_end = pos + _TRANS_WIDTH
+            if progress <= trans_end:
+                t = (progress - pos) / _TRANS_WIDTH
+                return _lerp_color(colors[i], colors[i + 1], t)
+            pos = trans_end
+
+    return colors[-1]
+
+
 class HeaderBar(ctk.CTkFrame):
     """Top bar with date navigation and weekly stats."""
 
@@ -310,14 +345,7 @@ class HeaderBar(ctk.CTkFrame):
 
         progress = min(week_worked_secs / max(week_target_secs, 1), 1.0)
 
-        if progress >= 1.0:
-            bar_color = "#f39c12"
-        elif progress >= 0.8:
-            bar_color = "#27ae60"
-        elif progress >= 0.5:
-            bar_color = "#1abc9c"
-        else:
-            bar_color = "#2980b9"
+        bar_color = _progress_color(progress)
 
         self._progress_text.update_values(
             progress, format_duration(remaining_secs),
