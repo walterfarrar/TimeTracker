@@ -6,6 +6,7 @@ from typing import Callable, Optional
 
 import customtkinter as ctk
 
+from .autocomplete_combobox import AutocompleteCombobox
 from .models import TimeEntry
 from .time_calc import compute_durations, compute_running_totals, format_duration
 
@@ -27,15 +28,25 @@ class LogView(ctk.CTkFrame):
                  on_delete: Optional[Callable[[TimeEntry], None]] = None,
                  on_add_above: Optional[Callable[[TimeEntry], None]] = None,
                  on_add_below: Optional[Callable[[TimeEntry], None]] = None,
+                 activity_list: Optional[list[str]] = None,
+                 on_activity_changed: Optional[Callable[[TimeEntry, str], None]] = None,
+                 project_list: Optional[list[str]] = None,
+                 on_project_changed: Optional[Callable[[TimeEntry, str], None]] = None,
                  **kwargs):
         super().__init__(master, **kwargs)
         self._on_edit = on_edit
         self._on_delete = on_delete
         self._on_add_above = on_add_above
         self._on_add_below = on_add_below
+        self._activity_list: list[str] = list(activity_list or [])
+        self._on_activity_changed = on_activity_changed
+        self._project_list: list[str] = list(project_list or [])
+        self._on_project_changed = on_project_changed
 
         self._row_frames: list[ctk.CTkFrame] = []
         self._entry_rows: list[tuple[TimeEntry, list[ctk.CTkLabel]]] = []
+        self._activity_combos: list[AutocompleteCombobox] = []
+        self._project_combos: list[AutocompleteCombobox] = []
         self._last_entry: Optional[TimeEntry] = None
         self._last_dur_label: Optional[ctk.CTkLabel] = None
         self._last_run_label: Optional[ctk.CTkLabel] = None
@@ -62,15 +73,24 @@ class LogView(ctk.CTkFrame):
         self._scroll.grid(row=1, column=0, sticky="nsew", padx=2, pady=2)
         self._scroll.grid_columnconfigure(0, weight=1)
 
-    def refresh(self, entries: list[TimeEntry], break_projects: list[str]) -> None:
+    def refresh(self, entries: list[TimeEntry], break_projects: list[str],
+                activity_list: Optional[list[str]] = None,
+                project_list: Optional[list[str]] = None) -> None:
         for frame in self._row_frames:
             frame.destroy()
         self._row_frames.clear()
         self._entry_rows.clear()
+        self._activity_combos.clear()
+        self._project_combos.clear()
         self._last_entry = None
         self._last_dur_label = None
         self._last_run_label = None
         self._base_running = 0.0
+
+        if activity_list is not None:
+            self._activity_list = list(activity_list)
+        if project_list is not None:
+            self._project_list = list(project_list)
 
         durations = compute_durations(entries)
         running = compute_running_totals(durations)
@@ -78,6 +98,9 @@ class LogView(ctk.CTkFrame):
         for d in durations:
             if d is not None:
                 self._base_running += d
+
+        PROJECT_COL = 2
+        ACTIVITY_COL = 3
 
         for row_idx, (entry, dur, run) in enumerate(zip(entries, durations, running)):
             is_break = entry.project in break_projects
@@ -101,14 +124,40 @@ class LogView(ctk.CTkFrame):
             ]
 
             labels: list[ctk.CTkLabel] = []
+            row_combos: list[AutocompleteCombobox] = []
             for col_idx, (val, w) in enumerate(zip(values, COL_WIDTHS)):
-                lbl = ctk.CTkLabel(
-                    row_frame, text=val, width=w, anchor="w",
-                    font=ctk.CTkFont(size=12),
-                    fg_color="transparent",
-                )
-                lbl.grid(row=0, column=col_idx, padx=2, pady=0, sticky="w")
-                labels.append(lbl)
+                if col_idx == PROJECT_COL:
+                    combo = AutocompleteCombobox(
+                        row_frame,
+                        values=self._project_list,
+                        initial_value=val,
+                        on_commit=lambda new_val, e=entry: self._project_committed(e, new_val),
+                        width=w,
+                    )
+                    combo.grid(row=0, column=col_idx, padx=2, pady=0, sticky="w")
+                    self._project_combos.append(combo)
+                    row_combos.append(combo)
+                    labels.append(None)
+                elif col_idx == ACTIVITY_COL:
+                    combo = AutocompleteCombobox(
+                        row_frame,
+                        values=self._activity_list,
+                        initial_value=val,
+                        on_commit=lambda new_val, e=entry: self._activity_committed(e, new_val),
+                        width=w,
+                    )
+                    combo.grid(row=0, column=col_idx, padx=2, pady=0, sticky="w")
+                    self._activity_combos.append(combo)
+                    row_combos.append(combo)
+                    labels.append(None)
+                else:
+                    lbl = ctk.CTkLabel(
+                        row_frame, text=val, width=w, anchor="w",
+                        font=ctk.CTkFont(size=12),
+                        fg_color="transparent",
+                    )
+                    lbl.grid(row=0, column=col_idx, padx=2, pady=0, sticky="w")
+                    labels.append(lbl)
 
             pencil_btn = ctk.CTkButton(
                 row_frame, text="\u270E", width=24, height=22,
@@ -126,8 +175,10 @@ class LogView(ctk.CTkFrame):
             )
 
             row_id = str(row_frame)
-            all_widgets = [row_frame] + labels + [pencil_btn]
-            for w in all_widgets:
+            hover_widgets = [row_frame] + [l for l in labels if l is not None] + [pencil_btn]
+            for c in row_combos:
+                hover_widgets.extend([c, c._entry, c._arrow_btn])
+            for w in hover_widgets:
                 w.bind("<Enter>", lambda ev, rid=row_id, rf=row_frame, pb=pencil_btn: self._on_row_enter(rid, rf, pb))
                 w.bind("<Leave>", lambda ev, rid=row_id, rf=row_frame, pb=pencil_btn: self._on_row_leave(rid, rf, pb))
 
@@ -141,6 +192,24 @@ class LogView(ctk.CTkFrame):
             self._last_run_label = last_labels[5]
 
         self._scroll.after(50, lambda: self._scroll._parent_canvas.yview_moveto(1.0))
+
+    def _project_committed(self, entry: TimeEntry, new_value: str) -> None:
+        if self._on_project_changed:
+            self._on_project_changed(entry, new_value)
+
+    def _activity_committed(self, entry: TimeEntry, new_value: str) -> None:
+        if self._on_activity_changed:
+            self._on_activity_changed(entry, new_value)
+
+    def update_project_list(self, values: list[str]) -> None:
+        self._project_list = list(values)
+        for combo in self._project_combos:
+            combo.set_values(self._project_list)
+
+    def update_activity_list(self, values: list[str]) -> None:
+        self._activity_list = list(values)
+        for combo in self._activity_combos:
+            combo.set_values(self._activity_list)
 
     def _on_row_enter(self, row_id: str, row_frame: ctk.CTkFrame,
                       pencil_btn: ctk.CTkButton) -> None:

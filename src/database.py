@@ -114,6 +114,18 @@ class Database:
             return row[0], row[1]
         return None, None
 
+    def get_distinct_projects(self) -> list[str]:
+        rows = self.conn.execute(
+            "SELECT DISTINCT project FROM entries WHERE project != '' ORDER BY project"
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def get_distinct_activities(self) -> list[str]:
+        rows = self.conn.execute(
+            "SELECT DISTINCT activity FROM entries WHERE activity != '' ORDER BY activity"
+        ).fetchall()
+        return [r[0] for r in rows]
+
     def has_entries_in_range(self, start: datetime, end: datetime) -> bool:
         row = self.conn.execute(
             "SELECT 1 FROM entries WHERE timestamp >= ? AND timestamp < ? LIMIT 1",

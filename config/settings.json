@@ -7,5 +7,7 @@
   "theme": "dark",
   "window_width": 1200,
   "window_height": 700,
+  "window_x": 286,
+  "window_y": 286,
   "db_path": ""
 }

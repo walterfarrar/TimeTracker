@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import tkinter as tk
 from datetime import datetime, timedelta
 from typing import Optional
 
 import customtkinter as ctk
 import matplotlib
+
+try:
+    from tkcalendar import Calendar as _Calendar
+except ImportError:
+    _Calendar = None
 
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
@@ -106,18 +112,114 @@ class ReportsView(ctk.CTkFrame):
         self._start_entry = ctk.CTkEntry(bar, textvariable=self._start_entry_var,
                                           width=110, font=ctk.CTkFont(size=12),
                                           placeholder_text="MM/DD/YYYY")
+        self._start_cal_btn = self._make_date_button(bar, self._start_entry)
 
         self._end_label = ctk.CTkLabel(bar, text="To:", font=ctk.CTkFont(size=12))
         self._end_entry_var = ctk.StringVar()
         self._end_entry = ctk.CTkEntry(bar, textvariable=self._end_entry_var,
                                         width=110, font=ctk.CTkFont(size=12),
                                         placeholder_text="MM/DD/YYYY")
+        self._end_cal_btn = self._make_date_button(bar, self._end_entry)
 
         self._apply_btn = ctk.CTkButton(bar, text="Apply", width=70, height=28,
                                          command=self._refresh)
 
         self._custom_widgets = [self._start_label, self._start_entry,
-                                self._end_label, self._end_entry, self._apply_btn]
+                                self._start_cal_btn,
+                                self._end_label, self._end_entry,
+                                self._end_cal_btn, self._apply_btn]
+
+    def _make_date_button(self, parent, entry: ctk.CTkEntry) -> ctk.CTkButton:
+        btn = ctk.CTkButton(
+            parent, text="\u25bc", width=28, height=28,
+            font=ctk.CTkFont(size=12),
+            fg_color="gray40", hover_color="gray50",
+            command=lambda: self._toggle_calendar(btn, entry),
+        )
+        return btn
+
+    _cal_popup: tk.Toplevel | None = None
+
+    def _toggle_calendar(self, button: ctk.CTkButton,
+                         entry: ctk.CTkEntry) -> None:
+        if self._cal_popup:
+            try:
+                self._cal_popup.destroy()
+            except tk.TclError:
+                pass
+            self._cal_popup = None
+            return
+
+        if _Calendar is None:
+            return
+
+        is_dark = ctk.get_appearance_mode().lower() == "dark"
+        bg, fg = ("#2b2b2b", "#dcdcdc") if is_dark else ("#ffffff", "#1a1a1a")
+        hdr_bg = "#1f3a5f" if is_dark else "#0078d4"
+        sel_bg = "#3a5f8f" if is_dark else "#0078d4"
+        border = "#555555" if is_dark else "#cccccc"
+
+        tk_var = entry.cget("textvariable")
+        current_text = tk_var.get() if tk_var else ""
+        initial_date = None
+        if current_text:
+            try:
+                initial_date = datetime.strptime(current_text, "%m/%d/%Y")
+            except ValueError:
+                pass
+
+        popup = tk.Toplevel(self)
+        popup.overrideredirect(True)
+        popup.attributes("-topmost", True)
+        self._cal_popup = popup
+
+        cal_kw: dict = dict(
+            selectmode="day", date_pattern="mm/dd/yyyy",
+            background=hdr_bg, foreground="#ffffff",
+            headersbackground=hdr_bg, headersforeground="#ffffff",
+            normalbackground=bg, normalforeground=fg,
+            weekendbackground=bg, weekendforeground=fg,
+            selectbackground=sel_bg, selectforeground="#ffffff",
+            bordercolor=border,
+            othermonthbackground=bg, othermonthforeground="gray50",
+            othermonthwebackground=bg, othermonthweforeground="gray50",
+        )
+        if initial_date:
+            cal_kw.update(year=initial_date.year, month=initial_date.month,
+                          day=initial_date.day)
+
+        cal = _Calendar(popup, **cal_kw)
+        cal.pack(padx=1, pady=1)
+
+        popup.update_idletasks()
+        x = button.winfo_rootx()
+        y = button.winfo_rooty() + button.winfo_height() + 2
+        popup.geometry(f"+{x}+{y}")
+
+        def on_select(_evt=None):
+            if tk_var:
+                tk_var.set(cal.get_date())
+            self._cal_popup = None
+            popup.destroy()
+
+        cal.bind("<<CalendarSelected>>", on_select)
+
+        self._cal_skip_close = True
+        if not getattr(self, "_cal_close_bound", False):
+            self.winfo_toplevel().bind(
+                "<Button-1>", self._close_cal_on_outside_click, add=True)
+            self._cal_close_bound = True
+
+    def _close_cal_on_outside_click(self, _event) -> None:
+        if getattr(self, "_cal_skip_close", False):
+            self._cal_skip_close = False
+            return
+        if self._cal_popup:
+            try:
+                self._cal_popup.destroy()
+            except tk.TclError:
+                pass
+            self._cal_popup = None
 
     def _build_content(self) -> None:
         self._scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
@@ -140,9 +242,11 @@ class ReportsView(ctk.CTkFrame):
         if value == "Custom Range":
             self._week_nav.pack_forget()
             self._start_label.pack(side="left", padx=(0, 4))
-            self._start_entry.pack(side="left", padx=(0, 8))
+            self._start_entry.pack(side="left", padx=(0, 2))
+            self._start_cal_btn.pack(side="left", padx=(0, 8))
             self._end_label.pack(side="left", padx=(0, 4))
-            self._end_entry.pack(side="left", padx=(0, 8))
+            self._end_entry.pack(side="left", padx=(0, 2))
+            self._end_cal_btn.pack(side="left", padx=(0, 8))
             self._apply_btn.pack(side="left")
         else:
             self._week_nav.pack(side="left", padx=(0, 12))
@@ -419,39 +523,65 @@ class ReportsView(ctk.CTkFrame):
         bg = "#2b2b2b" if is_dark else "#f0f0f0"
         fg = "#ffffff" if is_dark else "#000000"
 
-        fig = Figure(figsize=(10, 4.5), dpi=100, facecolor=bg)
+        proj_to_group = self._button_config.project_to_group_map()
 
-        ax1 = fig.add_subplot(121)
+        fig = Figure(figsize=(14, 4.5), dpi=100, facecolor=bg)
+
+        # --- By Group ---
+        group_totals: dict[str, float] = {}
+        for proj, data in agg.items():
+            group = proj_to_group.get(proj, proj)
+            group_totals[group] = group_totals.get(group, 0.0) + data["_total"]
+
+        ax0 = fig.add_subplot(131)
+        ax0.set_facecolor(bg)
+        groups_sorted = sorted(group_totals.keys(),
+                               key=lambda g: group_totals[g], reverse=True)
+        grp_seconds = [group_totals[g] for g in groups_sorted]
+        grp_labels = [f"{g}\n{format_hours(s)}" for g, s in zip(groups_sorted, grp_seconds)]
+        grp_colors = [_COLORS[i % len(_COLORS)] for i in range(len(groups_sorted))]
+
+        ax0.pie(
+            grp_seconds, labels=grp_labels, colors=grp_colors,
+            startangle=90, textprops={"fontsize": 8, "color": fg},
+        )
+        ax0.set_title("By Group", fontsize=12, fontweight="bold", color=fg, pad=12)
+
+        # --- By Project ---
+        ax1 = fig.add_subplot(132)
         ax1.set_facecolor(bg)
         projects = sorted(agg.keys(), key=lambda p: agg[p]["_total"], reverse=True)
         proj_seconds = [agg[p]["_total"] for p in projects]
         proj_labels = [f"{p}\n{format_hours(s)}" for p, s in zip(projects, proj_seconds)]
         colors = [_COLORS[i % len(_COLORS)] for i in range(len(projects))]
 
-        wedges1, texts1 = ax1.pie(
+        ax1.pie(
             proj_seconds, labels=proj_labels, colors=colors,
             startangle=90, textprops={"fontsize": 8, "color": fg},
         )
         ax1.set_title("By Project", fontsize=12, fontweight="bold", color=fg, pad=12)
 
-        ax2 = fig.add_subplot(122)
+        # --- By Activity ---
+        ax2 = fig.add_subplot(133)
         ax2.set_facecolor(bg)
-        act_labels_list = []
-        act_seconds = []
-        act_colors = []
-        for ci, proj in enumerate(projects):
-            activities = {k: v for k, v in agg[proj].items() if k != "_total"}
-            for act, secs in sorted(activities.items(), key=lambda x: x[1], reverse=True):
-                act_labels_list.append(f"{proj}: {act}\n{format_hours(secs)}")
-                act_seconds.append(secs)
-                act_colors.append(colors[ci])
+        activity_totals: dict[str, float] = {}
+        for proj_data in agg.values():
+            for key, secs in proj_data.items():
+                if key != "_total":
+                    activity_totals[key] = activity_totals.get(key, 0.0) + secs
 
-        if act_seconds:
-            wedges2, texts2 = ax2.pie(
+        if activity_totals:
+            sorted_acts = sorted(activity_totals.keys(),
+                                 key=lambda a: activity_totals[a], reverse=True)
+            act_seconds = [activity_totals[a] for a in sorted_acts]
+            act_labels_list = [f"{a}\n{format_hours(s)}"
+                               for a, s in zip(sorted_acts, act_seconds)]
+            act_colors = [_COLORS[i % len(_COLORS)] for i in range(len(sorted_acts))]
+            ax2.pie(
                 act_seconds, labels=act_labels_list, colors=act_colors,
-                startangle=90, textprops={"fontsize": 7, "color": fg},
+                startangle=90, textprops={"fontsize": 8, "color": fg},
             )
-        ax2.set_title("By Project + Activity", fontsize=12, fontweight="bold",
+        ax2.set_title("By Activity", fontsize=12, fontweight="bold",
                        color=fg, pad=12)
 
         fig.tight_layout(pad=2.0)

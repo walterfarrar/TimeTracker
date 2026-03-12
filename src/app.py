@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tkinter as tk
 from datetime import datetime
 from typing import Optional
 
@@ -93,6 +94,10 @@ class TimeTrackerApp(ctk.CTk):
             on_delete=self._on_entry_delete,
             on_add_above=self._on_entry_add_above,
             on_add_below=self._on_entry_add_below,
+            activity_list=self._get_activity_list(),
+            on_activity_changed=self._on_activity_changed,
+            project_list=self._get_all_project_list(),
+            on_project_changed=self._on_project_changed,
         )
         self.log_view.grid(row=1, column=0, sticky="nsew", padx=(0, 4), pady=0)
 
@@ -123,12 +128,19 @@ class TimeTrackerApp(ctk.CTk):
         self.bind_all("<Button-1>", self._on_global_click, add=True)
 
     def _on_global_click(self, event) -> None:
-        """Shift focus away from the days entry when clicking anywhere else."""
+        """Shift focus away from the days entry when clicking on non-interactive areas."""
         widget = event.widget
         try:
             if widget != self.header._days_entry and not widget.master == self.header._days_entry:
+                interactive = (tk.Entry, tk.Listbox, tk.Text, tk.Spinbox,
+                               ctk.CTkEntry, ctk.CTkComboBox, ctk.CTkButton)
+                w = widget
+                while w is not None:
+                    if isinstance(w, interactive):
+                        return
+                    w = getattr(w, "master", None)
                 self.header._days_entry.winfo_toplevel().focus_set()
-        except (AttributeError, KeyError):
+        except (AttributeError, KeyError, tk.TclError):
             pass
 
     def _load_sidebar_buttons(self) -> None:
@@ -160,7 +172,9 @@ class TimeTrackerApp(ctk.CTk):
     def refresh_log(self) -> None:
         view_date = self.header.view_date
         entries = self.db.get_entries_for_date(view_date)
-        self.log_view.refresh(entries, self.settings.break_projects)
+        self.log_view.refresh(entries, self.settings.break_projects,
+                              activity_list=self._get_activity_list(),
+                              project_list=self._get_all_project_list())
 
         durations = compute_durations(entries)
         self._cached_worked_today = compute_work_time(
@@ -214,6 +228,42 @@ class TimeTrackerApp(ctk.CTk):
                     seen.add(btn.project)
                     projects.append(btn.project)
         return projects
+
+    def _get_all_project_list(self) -> list[str]:
+        """Collect unique project names from the database and button config."""
+        db_projects = self.db.get_distinct_projects()
+        seen = set(db_projects)
+        projects = list(db_projects)
+        for group in self.button_config.groups:
+            for btn in group.buttons:
+                if btn.project and btn.project not in seen:
+                    seen.add(btn.project)
+                    projects.append(btn.project)
+        projects.sort(key=str.lower)
+        return projects
+
+    def _get_activity_list(self) -> list[str]:
+        """Collect unique activity names from the database and button config."""
+        db_activities = self.db.get_distinct_activities()
+        seen = set(db_activities)
+        activities = list(db_activities)
+        for group in self.button_config.groups:
+            for btn in group.buttons:
+                if btn.activity and btn.activity not in seen:
+                    seen.add(btn.activity)
+                    activities.append(btn.activity)
+        activities.sort(key=str.lower)
+        return activities
+
+    def _on_project_changed(self, entry: TimeEntry, new_project: str) -> None:
+        self.db.update_entry(entry.id, new_project, entry.activity)
+        entry.project = new_project
+        self.log_view.update_project_list(self._get_all_project_list())
+
+    def _on_activity_changed(self, entry: TimeEntry, new_activity: str) -> None:
+        self.db.update_entry(entry.id, entry.project, new_activity)
+        entry.activity = new_activity
+        self.log_view.update_activity_list(self._get_activity_list())
 
     def _on_entry_edit(self, entry: TimeEntry) -> None:
         from .edit_dialog import EditEntryDialog
