@@ -374,8 +374,10 @@ class TimeTrackerApp(ctk.CTk):
             self.settings.hours_per_day,
         )
 
-        target = self.settings.working_days_this_week * self.settings.hours_per_day * 3600
-        self.header.update_stats(live_worked_today, remaining, live_week_worked, target)
+        week_target = self.settings.working_days_this_week * self.settings.hours_per_day * 3600
+        day_target = self.settings.hours_per_day * 3600
+        self.header.update_stats(live_worked_today, remaining, live_week_worked,
+                                 week_target, day_target)
 
     def _start_live_tick(self) -> None:
         """Update the header counters and current entry duration every second."""

@@ -129,6 +129,16 @@ _BAND_WIDTH = 0.176
 _TRANS_WIDTH = 0.03
 
 
+_DAY_COLOR_FALLBACK = "#808080"
+
+
+def _day_color(weekday: int) -> str:
+    """Return a solid band color for a weekday (0=Mon … 4=Fri), grey otherwise."""
+    if 0 <= weekday < len(_BAND_COLORS):
+        return _BAND_COLORS[weekday]
+    return _DAY_COLOR_FALLBACK
+
+
 def _progress_color(progress: float) -> str:
     colors = _BAND_COLORS
     n = len(colors)
@@ -230,11 +240,11 @@ class HeaderBar(ctk.CTkFrame):
         self._days_entry.bind("<Return>", self._on_days_edited)
         self._days_entry.bind("<FocusOut>", self._on_days_edited)
 
-        # Worked today
+        # Worked today (with daily progress bar)
         ctk.CTkLabel(stats, text="Worked Today", font=label_font,
                      text_color="gray70").grid(row=0, column=1, padx=10, pady=(4, 0))
-        self._worked_value = ctk.CTkLabel(stats, text="0:00:00", font=value_font)
-        self._worked_value.grid(row=1, column=1, padx=10, pady=(0, 4))
+        self._daily_progress = _ProgressText(stats, height=36, corner_radius=10)
+        self._daily_progress.grid(row=1, column=1, padx=10, pady=(0, 4), sticky="ew")
 
         # Remaining this week (with progress bar)
         ctk.CTkLabel(stats, text="Remaining This Week", font=label_font,
@@ -344,9 +354,8 @@ class HeaderBar(ctk.CTkFrame):
     def update_stats(self, worked_today_secs: float,
                      remaining_secs: float,
                      week_worked_secs: float = 0.0,
-                     week_target_secs: float = 1.0) -> None:
-        self._worked_value.configure(text=format_duration(worked_today_secs))
-
+                     week_target_secs: float = 1.0,
+                     day_target_secs: float = 1.0) -> None:
         if remaining_secs < 0:
             text_color = "#e74c3c"
         elif remaining_secs < 3600:
@@ -368,3 +377,8 @@ class HeaderBar(ctk.CTkFrame):
         self._progress_text.update_values(
             progress, format_duration(remaining_secs),
             bar_color, text_color)
+
+        daily_progress = min(worked_today_secs / max(day_target_secs, 1), 1.0)
+        daily_color = _day_color(self._view_date.weekday())
+        self._daily_progress.update_values(
+            daily_progress, format_duration(worked_today_secs), daily_color)
