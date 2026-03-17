@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import tkinter as tk
 from datetime import datetime, timedelta
 from typing import Callable, Optional
@@ -24,20 +25,25 @@ class _ProgressText(tk.Canvas):
         self._fill_color = "#2980b9"
         self._text_color = "#ffffff"
         self._text_warn_color: str | None = None
+        self._dividers: list[float] = []
 
         is_dark = ctk.get_appearance_mode().lower() == "dark"
-        self._track_color = "#383838" if is_dark else "#c8c8c8"
+        self._track_color = "#484848" if is_dark else "#b8b8b8"
         self._outline_color = "#000000" if is_dark else "#555555"
-        self.configure(bg="#2b2b2b" if is_dark else "#e8e8e8")
+        self._bg_color = "#2b2b2b" if is_dark else "#e8e8e8"
+        self.configure(bg=self._bg_color)
 
         self.bind("<Configure>", self._redraw)
 
     def update_values(self, progress: float, text: str,
-                      fill_color: str, text_color: str | None = None) -> None:
+                      fill_color: str, text_color: str | None = None,
+                      dividers: list[float] | None = None) -> None:
         self._progress = max(0.0, min(progress, 1.0))
         self._text = text
         self._fill_color = fill_color
         self._text_warn_color = text_color
+        if dividers is not None:
+            self._dividers = dividers
         self._redraw()
 
     def _round_rect(self, x1, y1, x2, y2, r, **kw) -> None:
@@ -71,6 +77,20 @@ class _ProgressText(tk.Canvas):
             fill_w = min(fill_w, w)
             self._round_rect(0, 0, fill_w, h, cr,
                              fill=self._fill_color, outline="")
+
+        notch_size = 6
+        is_dark = ctk.get_appearance_mode().lower() == "dark"
+        notch_color = "#000000" if is_dark else "#ffffff"
+        for frac in self._dividers:
+            x = int(w * frac)
+            if x <= cr or x >= w - cr:
+                continue
+            self.create_polygon(
+                x - notch_size, 0, x + notch_size, 0, x, notch_size,
+                fill=notch_color, outline="")
+            self.create_polygon(
+                x - notch_size, h, x + notch_size, h, x, h - notch_size,
+                fill=notch_color, outline="")
 
         cx, cy = w / 2, h / 2
         font = ("Segoe UI", 15, "bold")
@@ -163,6 +183,56 @@ def _progress_color(progress: float) -> str:
     return colors[-1]
 
 
+def _compute_day_dividers(
+    per_day: dict[int, float],
+    today_weekday: int,
+    hours_per_day: float,
+    working_days: float,
+    week_target_secs: float,
+) -> list[float]:
+    """Return fractional x-positions (0..1) for dividers between day segments."""
+    day_target = hours_per_day * 3600
+    num_segments = max(math.ceil(working_days), len(per_day))
+    if num_segments <= 1 or week_target_secs <= 0:
+        return []
+
+    widths: list[float] = []
+    future_indices: list[int] = []
+    allocated = 0.0
+
+    for i in range(num_segments):
+        if i < today_weekday:
+            w = per_day.get(i, 0.0)
+        elif i == today_weekday:
+            w = max(day_target, per_day.get(i, 0.0))
+        else:
+            future_indices.append(i)
+            widths.append(0.0)
+            continue
+        allocated += w
+        widths.append(w)
+
+    if future_indices:
+        remaining = max(week_target_secs - allocated, 0.0)
+        each = remaining / len(future_indices)
+        for idx in future_indices:
+            widths[idx] = each
+
+    total = sum(widths)
+    if total <= 0:
+        return []
+
+    dividers: list[float] = []
+    cumulative = 0.0
+    for i in range(num_segments - 1):
+        cumulative += widths[i]
+        pos = cumulative / total
+        if 0.0 < pos < 1.0:
+            dividers.append(pos)
+
+    return dividers
+
+
 class HeaderBar(ctk.CTkFrame):
     """Top bar with date navigation and weekly stats."""
 
@@ -240,8 +310,8 @@ class HeaderBar(ctk.CTkFrame):
         self._days_entry.bind("<Return>", self._on_days_edited)
         self._days_entry.bind("<FocusOut>", self._on_days_edited)
 
-        # Worked today (with daily progress bar)
-        ctk.CTkLabel(stats, text="Worked Today", font=label_font,
+        # Remaining today (with daily progress bar)
+        ctk.CTkLabel(stats, text="Remaining Today", font=label_font,
                      text_color="gray70").grid(row=0, column=1, padx=10, pady=(4, 0))
         self._daily_progress = _ProgressText(stats, height=36, corner_radius=10)
         self._daily_progress.grid(row=1, column=1, padx=10, pady=(0, 4), sticky="ew")
@@ -355,7 +425,8 @@ class HeaderBar(ctk.CTkFrame):
                      remaining_secs: float,
                      week_worked_secs: float = 0.0,
                      week_target_secs: float = 1.0,
-                     day_target_secs: float = 1.0) -> None:
+                     day_target_secs: float = 1.0,
+                     per_day: dict[int, float] | None = None) -> None:
         if remaining_secs < 0:
             text_color = "#e74c3c"
         elif remaining_secs < 3600:
@@ -374,11 +445,25 @@ class HeaderBar(ctk.CTkFrame):
                 self._nav.configure(fg_color=tint)
                 self._nav_current_hex = tint
 
+        today_weekday = datetime.now().weekday()
+        working_days = float(self._days_var.get() or "5")
+        dividers = _compute_day_dividers(
+            per_day or {}, today_weekday,
+            day_target_secs / 3600, working_days, week_target_secs)
+
         self._progress_text.update_values(
             progress, format_duration(remaining_secs),
-            bar_color, text_color)
+            bar_color, text_color, dividers)
 
         daily_progress = min(worked_today_secs / max(day_target_secs, 1), 1.0)
+        daily_remaining = day_target_secs - worked_today_secs
         daily_color = _day_color(self._view_date.weekday())
+        if daily_remaining < 0:
+            daily_text_color = "#e74c3c"
+        elif daily_remaining < 3600:
+            daily_text_color = "#f39c12"
+        else:
+            daily_text_color = None
         self._daily_progress.update_values(
-            daily_progress, format_duration(worked_today_secs), daily_color)
+            daily_progress, format_duration(daily_remaining),
+            daily_color, daily_text_color)

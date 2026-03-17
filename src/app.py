@@ -15,6 +15,7 @@ from .reports_view import ReportsView
 from .sidebar import Sidebar
 from .time_calc import (
     compute_durations,
+    compute_per_day_work_time,
     compute_work_time,
     compute_week_work_time,
     compute_time_remaining,
@@ -47,6 +48,7 @@ class TimeTrackerApp(ctk.CTk):
         self._tray_tick: int = 0
         self._cached_worked_today: float = 0.0
         self._cached_week_worked: float = 0.0
+        self._cached_per_day: dict[int, float] = {}
         self._last_entry_timestamp: float = 0.0
         self._last_entry_is_break: bool = False
         self._day_ended: bool = False
@@ -183,6 +185,8 @@ class TimeTrackerApp(ctk.CTk):
         today = datetime.now()
         week_entries = self.db.get_entries_for_week(today)
         self._cached_week_worked = compute_week_work_time(
+            week_entries, self.settings.break_projects)
+        self._cached_per_day = compute_per_day_work_time(
             week_entries, self.settings.break_projects)
 
         today_entries = self.db.get_entries_for_date(
@@ -375,9 +379,17 @@ class TimeTrackerApp(ctk.CTk):
         )
 
         week_target = self.settings.working_days_this_week * self.settings.hours_per_day * 3600
-        day_target = self.settings.hours_per_day * 3600
-        self.header.update_stats(live_worked_today, remaining, live_week_worked,
-                                 week_target, day_target)
+        work_before_today = live_week_worked - live_worked_today
+        day_target = min(self.settings.hours_per_day * 3600,
+                         max(week_target - work_before_today, 0.0))
+
+        today_weekday = datetime.now().weekday()
+        live_per_day = dict(self._cached_per_day)
+        live_per_day[today_weekday] = live_per_day.get(today_weekday, 0.0) + today_elapsed
+
+        self.header.update_stats(
+            live_worked_today, remaining, live_week_worked,
+            week_target, day_target, per_day=live_per_day)
 
     def _start_live_tick(self) -> None:
         """Update the header counters and current entry duration every second."""

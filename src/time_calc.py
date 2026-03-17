@@ -81,6 +81,24 @@ def compute_week_work_time(all_week_entries: list[TimeEntry],
     return total
 
 
+def compute_per_day_work_time(all_week_entries: list[TimeEntry],
+                              break_projects: list[str]) -> dict[int, float]:
+    """Seconds worked per weekday (0=Mon … 6=Sun), excluding breaks."""
+    if not all_week_entries:
+        return {}
+
+    by_date: dict[str, list[TimeEntry]] = {}
+    for entry in all_week_entries:
+        by_date.setdefault(entry.date_str, []).append(entry)
+
+    result: dict[int, float] = {}
+    for date_entries in by_date.values():
+        weekday = date_entries[0].dt.weekday()
+        durations = compute_durations(date_entries)
+        result[weekday] = compute_work_time(date_entries, durations, break_projects)
+    return result
+
+
 def compute_time_remaining(week_work_seconds: float,
                            working_days: float,
                            hours_per_day: float) -> float:
