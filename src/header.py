@@ -26,6 +26,7 @@ class _ProgressText(tk.Canvas):
         self._text_color = "#ffffff"
         self._text_warn_color: str | None = None
         self._dividers: list[float] = []
+        self._hour_count: int = 0
 
         is_dark = ctk.get_appearance_mode().lower() == "dark"
         self._track_color = "#484848" if is_dark else "#b8b8b8"
@@ -37,13 +38,15 @@ class _ProgressText(tk.Canvas):
 
     def update_values(self, progress: float, text: str,
                       fill_color: str, text_color: str | None = None,
-                      dividers: list[float] | None = None) -> None:
+                      dividers: list[float] | None = None,
+                      hour_count: int = 0) -> None:
         self._progress = max(0.0, min(progress, 1.0))
         self._text = text
         self._fill_color = fill_color
         self._text_warn_color = text_color
         if dividers is not None:
             self._dividers = dividers
+        self._hour_count = hour_count
         self._redraw()
 
     def _round_rect(self, x1, y1, x2, y2, r, **kw) -> None:
@@ -77,6 +80,13 @@ class _ProgressText(tk.Canvas):
             fill_w = min(fill_w, w)
             self._round_rect(0, 0, fill_w, h, cr,
                              fill=self._fill_color, outline="")
+
+        if self._hour_count > 1:
+            tick_color = _lerp_color(self._fill_color, "#000000", 0.35)
+            for i in range(1, self._hour_count):
+                x = int(w * i / self._hour_count)
+                if cr < x < w - cr:
+                    self.create_line(x, 1, x, h - 1, fill=tick_color, width=1)
 
         notch_size = 6
         is_dark = ctk.get_appearance_mode().lower() == "dark"
@@ -214,9 +224,15 @@ def _compute_day_dividers(
 
     if future_indices:
         remaining = max(week_target_secs - allocated, 0.0)
-        each = remaining / len(future_indices)
         for idx in future_indices:
-            widths[idx] = each
+            widths[idx] = day_target
+        excess = sum(widths[i] for i in future_indices) - remaining
+        for idx in reversed(future_indices):
+            if excess <= 0:
+                break
+            reduction = min(excess, widths[idx])
+            widths[idx] -= reduction
+            excess -= reduction
 
     total = sum(widths)
     if total <= 0:
@@ -451,9 +467,10 @@ class HeaderBar(ctk.CTkFrame):
             per_day or {}, today_weekday,
             day_target_secs / 3600, working_days, week_target_secs)
 
+        total_hours = int(week_target_secs / 3600)
         self._progress_text.update_values(
             progress, format_duration(remaining_secs),
-            bar_color, text_color, dividers)
+            bar_color, text_color, dividers, total_hours)
 
         daily_progress = min(worked_today_secs / max(day_target_secs, 1), 1.0)
         daily_remaining = day_target_secs - worked_today_secs
