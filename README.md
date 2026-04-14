@@ -36,9 +36,11 @@ Both can be edited through the in-app Settings dialog.
 
 ## Building a Standalone Executable
 
+On Windows, use a **folder** build (not `--onefile`) so `config/`, `assets/`, and the database resolve correctly with PyInstaller 6+ (bundled data lives under `_internal/`).
+
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --windowed --name TimeTracker --add-data "config;config" main.py
+pyinstaller --windowed --name TimeTracker --add-data "config;config" --add-data "assets;assets" main.py
 ```
 
-The executable will be in the `dist/` folder.
+Run `dist/TimeTracker/TimeTracker.exe`. Distribute the whole `dist/TimeTracker` folder. If PyInstaller complains the output folder is not empty, add `-y` or delete `dist/TimeTracker` first.

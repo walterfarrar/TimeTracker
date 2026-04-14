@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 import customtkinter as ctk
+from PIL import Image, ImageTk
 
 from .database import Database
 from .export import prompt_and_export, prompt_and_export_week, export_all_json, import_all_json
@@ -22,7 +23,7 @@ from .time_calc import (
     format_duration,
 )
 from .tray import TrayManager
-from .utils import get_buttons_path, get_settings_path
+from .utils import get_app_icon_png_path, get_buttons_path, get_settings_path
 
 
 class TimeTrackerApp(ctk.CTk):
@@ -36,6 +37,7 @@ class TimeTrackerApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.title("Time Tracker")
+        self._apply_window_icon()
         geo = f"{self.settings.window_width}x{self.settings.window_height}"
         if self.settings.window_x is not None and self.settings.window_y is not None:
             geo += f"+{self.settings.window_x}+{self.settings.window_y}"
@@ -72,6 +74,17 @@ class TimeTrackerApp(ctk.CTk):
         self.bind("<Control-J>", lambda e: self._import_json())
 
         self._start_live_tick()
+
+    def _apply_window_icon(self) -> None:
+        path = get_app_icon_png_path()
+        if not path.is_file():
+            return
+        try:
+            img = Image.open(path)
+            self._window_icon_photo = ImageTk.PhotoImage(img)
+            self.iconphoto(True, self._window_icon_photo)
+        except OSError:
+            pass
 
     def _build_ui(self) -> None:
         self.grid_rowconfigure(0, weight=1)

@@ -5,8 +5,20 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw
 
+from .utils import get_app_icon_png_path
+
 if TYPE_CHECKING:
     from .app import TimeTrackerApp
+
+
+def _load_tray_icon_image(size: int = 64) -> Image.Image:
+    path = get_app_icon_png_path()
+    if path.is_file():
+        img = Image.open(path).convert("RGBA")
+        if img.size != (size, size):
+            img = img.resize((size, size), Image.Resampling.LANCZOS)
+        return img
+    return _create_icon_image(size)
 
 
 def _create_icon_image(size: int = 64) -> Image.Image:
@@ -35,7 +47,7 @@ class TrayManager:
     def start(self) -> None:
         import pystray
 
-        image = _create_icon_image()
+        image = _load_tray_icon_image()
         menu = pystray.Menu(
             pystray.MenuItem("Show", self._show_window, default=True),
             pystray.MenuItem("End Day", self._end_day),
