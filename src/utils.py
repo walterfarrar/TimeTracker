@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import os
+import json
+import shutil
 import sys
 from pathlib import Path
 
 
 def get_app_dir() -> Path:
-    """Return the directory where the application lives (for config files)."""
+    """Return the directory where the application lives (bundled assets, defaults)."""
     if getattr(sys, "frozen", False):
         base = Path(sys.executable).resolve().parent
-        # PyInstaller 6+ onedir: bundled data lives next to the runtime under _internal/
         internal = base / "_internal"
         if internal.is_dir():
             return internal
@@ -17,16 +17,34 @@ def get_app_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def get_config_dir() -> Path:
+def get_user_data_dir() -> Path:
+    """Persistent per-user directory that survives rebuilds and git operations."""
+    d = Path.home() / ".timetracker"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _default_config_dir() -> Path:
+    """Bundled/repo config directory (read-only defaults)."""
     return get_app_dir() / "config"
 
 
+def _ensure_user_config(filename: str) -> Path:
+    """Return the user-local config path, seeding from bundled defaults on first run."""
+    user_path = get_user_data_dir() / filename
+    if not user_path.exists():
+        default = _default_config_dir() / filename
+        if default.exists():
+            shutil.copy2(default, user_path)
+    return user_path
+
+
 def get_buttons_path() -> Path:
-    return get_config_dir() / "buttons.json"
+    return _ensure_user_config("buttons.json")
 
 
 def get_settings_path() -> Path:
-    return get_config_dir() / "settings.json"
+    return _ensure_user_config("settings.json")
 
 
 def get_app_icon_png_path() -> Path:

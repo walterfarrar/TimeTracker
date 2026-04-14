@@ -1,10 +1,44 @@
 {
   "groups": [
     {
+      "name": "PLUGINS",
+      "buttons": [
+        {"label": "General", "project": "PLUGINS", "activity": "General"},
+        {"label": "Meeting", "project": "PLUGINS", "activity": "Meeting"},
+        {"label": "Releasing", "project": "PLUGINS", "activity": "Releasing"},
+        {"label": "Testing", "project": "PLUGINS", "activity": "Testing"}
+      ]
+    },
+    {
+      "name": "PAIN",
+      "buttons": [
+        {"label": "Dev", "project": "PAIN", "activity": "Dev"},
+        {"label": "Tickets", "project": "PAIN", "activity": "Tickets"}
+      ]
+    },
+    {
+      "name": "SPINE",
+      "buttons": [
+        {"label": "Tickets", "project": "SPINE", "activity": "Tickets"}
+      ]
+    },
+    {
+      "name": "ETHNICITY",
+      "buttons": [
+        {"label": "Tickets", "project": "ETHNICITY", "activity": "Tickets"}
+      ]
+    },
+    {
       "name": "BREAK",
       "buttons": [
         {"label": "Break", "project": "BREAK", "activity": "Break"},
         {"label": "Lunch", "project": "BREAK", "activity": "Lunch"}
+      ]
+    },
+    {
+      "name": "END_OF_DAY",
+      "buttons": [
+        {"label": "Done", "project": "END_OF_DAY", "activity": "Done"}
       ]
     }
   ]
